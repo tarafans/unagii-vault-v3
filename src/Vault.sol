@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
+import 'forge-std/console.sol'; // TODO: remove when done
+
 import 'solmate/tokens/ERC20.sol';
 import 'solmate/utils/SafeTransferLib.sol';
 import 'solmate/utils/FixedPointMathLib.sol';
@@ -18,11 +20,10 @@ contract Vault is ERC20, IERC4626, Ownership {
 	// uint256 public immutable decimalOffset; // TODO: normalize share decimals to 18 regardless of token decimals?
 
 	uint256 _lockedProfit;
-	/// @notice delay before locked profits are fully released
-	uint256 public lockedProfitDuration = 6 hours;
 	/// @notice timestamp of last report, used for locked profit calculations
 	uint256 public lastReport;
-
+	/// @notice period over which profits are gradually unlocked, defense against sandwich attacks
+	uint256 public lockedProfitDuration = 6 hours;
 	uint256 public constant MAX_LOCKED_PROFIT_DURATION = 3 days;
 
 	struct StrategyParams {
@@ -83,7 +84,7 @@ contract Vault is ERC20, IERC4626, Ownership {
 
 	function totalInStrategies() public view returns (uint256 assets) {
 		for (uint8 i = 0; i < _queue.length; ++i) {
-			assets += _queue[i].totalAssets();
+			assets += strategies[_queue[i]].debt;
 		}
 	}
 
@@ -92,9 +93,14 @@ contract Vault is ERC20, IERC4626, Ownership {
 	}
 
 	function lockedProfit() public view returns (uint256 lockedAssets) {
+		uint256 last = lastReport;
+		uint256 duration = lockedProfitDuration;
+
 		unchecked {
-			if (block.timestamp - lastReport > lockedProfitDuration) return 0;
-			return ((_lockedProfit * (block.timestamp - lastReport)) / lockedProfitDuration);
+			// won't overflow since time is nowhere near uint256.max
+			if (block.timestamp >= last + duration) return 0;
+			// this can overflow if _lockedProfit * difference > uint256.max but in practice should never happen
+			return _lockedProfit - ((_lockedProfit * (block.timestamp - last)) / duration);
 		}
 	}
 
@@ -258,7 +264,7 @@ contract Vault is ERC20, IERC4626, Ownership {
 	function setLockedProfitDuration(uint256 _newDuration) external onlyAdmins {}
 
 	/*///////////////////////////////////////////////
-	/      Restricted Functions: onlyAuthorized      /
+	/      Restricted Functions: onlyAuthorized     /
 	///////////////////////////////////////////////*/
 
 	function suspendStrategy(Strategy _strategy) external onlyAuthorized {}
@@ -267,78 +273,25 @@ contract Vault is ERC20, IERC4626, Ownership {
 
 	function unpause() external onlyAuthorized {}
 
-	function harvest() external onlyAuthorized {
+	/// @dev use if >1 strategy reporting, saves gas
+	function reportAll() external onlyAuthorized {
 		for (uint8 i = 0; i < _queue.length; ++i) {
-			Strategy strategy = _queue[i];
-
-			strategy.harvest();
-
-			uint256 assets = strategy.totalAssets();
-			uint256 debt = strategies[strategy].debt;
-
-			uint256 gain;
-			uint256 loss;
-
-			if (assets > debt) {
-				gain = assets - debt;
-				_lockedProfit = lockedProfit() + gain;
-			} else if (debt > assets) {
-				loss = debt - assets;
-				strategies[strategy].debt -= loss;
-				totalDebt -= loss;
-
-				uint256 lockedProfitBeforeLoss = lockedProfit();
-				_lockedProfit = lockedProfitBeforeLoss > loss ? lockedProfitBeforeLoss - loss : 0;
-			}
-
-			emit Report(strategy, gain, loss);
-
-			uint256 currentDebt = debt + gain;
-			uint256 possibleDebt = totalDebtRatio == 0
-				? 0
-				: ((totalAssets() + gain) * strategies[strategy].debtRatio) / totalDebtRatio;
-
-			if (currentDebt > possibleDebt) _lend(strategy, possibleDebt - currentDebt);
-			if (possibleDebt > currentDebt) _collect(strategy, currentDebt - possibleDebt, address(this));
+			_report(_queue[i]);
 		}
+		lastReport = block.timestamp;
+	}
+
+	function report(Strategy _strategy) external onlyAuthorized {
+		if (!strategies[_strategy].added) revert NotStrategy();
+
+		_report(Strategy(_strategy));
 
 		lastReport = block.timestamp;
 	}
 
-	/*////////////////////////////////////////////////
-	/      Restricted Functions: onlyStrategies      /
-	////////////////////////////////////////////////*/
-
-	function report() external onlyStrategy {
-		Strategy strategy = Strategy(msg.sender);
-
-		uint256 assets = strategy.totalAssets();
-		uint256 debt = strategies[strategy].debt;
-
-		uint256 gain;
-
-		if (assets > debt) {
-			gain = assets - debt;
-			_lockedProfit = lockedProfit() + gain;
-		} else if (debt > assets) {
-			uint256 loss = debt - assets;
-			strategies[strategy].debt -= loss;
-			totalDebt -= loss;
-
-			uint256 lockedProfitBeforeLoss = lockedProfit();
-			_lockedProfit = lockedProfitBeforeLoss > loss ? lockedProfitBeforeLoss - loss : 0;
-		}
-
-		uint256 currentDebt = debt + gain;
-		uint256 possibleDebt = totalDebtRatio == 0
-			? 0
-			: ((totalAssets() + gain) * strategies[strategy].debtRatio) / totalDebtRatio;
-
-		if (currentDebt > possibleDebt) _lend(strategy, possibleDebt - currentDebt);
-		if (possibleDebt > currentDebt) _collect(strategy, currentDebt - possibleDebt, address(this));
-
-		lastReport = block.timestamp;
-	}
+	/*/////////////////////////////////////////////
+	/      Restricted Functions: onlyStrategy     /
+	/////////////////////////////////////////////*/
 
 	/*/////////////////////////////
 	/      Internal Override      /
@@ -435,7 +388,7 @@ contract Vault is ERC20, IERC4626, Ownership {
 		uint256 _assets,
 		address _receiver
 	) internal returns (uint256 received) {
-		received = _strategy.withdraw(_assets, _receiver);
+		received = _strategy.withdraw(_assets, _receiver); // strategy handles overflow
 
 		uint256 debt = strategies[_strategy].debt;
 
@@ -445,14 +398,36 @@ contract Vault is ERC20, IERC4626, Ownership {
 		totalDebt -= amount;
 	}
 
-	function _report(Strategy _strategy) internal {}
+	function _report(Strategy _strategy) internal {
+		uint256 assets = _strategy.totalAssets();
+		uint256 debt = strategies[_strategy].debt;
 
-	/*/////////////////////
-	/      Modifiers      /
-  /////////////////////*/
+		uint256 gain;
 
-	modifier onlyStrategy() {
-		if (!strategies[Strategy(msg.sender)].added) revert NotStrategy();
-		_;
+		if (assets > debt) {
+			unchecked {
+				gain = assets - debt;
+			}
+			totalDebt += gain;
+
+			_lockedProfit = lockedProfit() + gain;
+		} else if (debt > assets) {
+			unchecked {
+				uint256 loss = debt - assets;
+				totalDebt -= loss;
+
+				uint256 lockedProfitBeforeLoss = lockedProfit();
+				_lockedProfit = lockedProfitBeforeLoss > loss ? lockedProfitBeforeLoss - loss : 0;
+			}
+		}
+
+		strategies[_strategy].debt = assets;
+
+		uint256 possibleDebt = totalDebtRatio == 0
+			? 0
+			: (totalAssets() * strategies[_strategy].debtRatio) / totalDebtRatio;
+
+		if (possibleDebt > assets) _lend(_strategy, possibleDebt - assets);
+		else if (assets > possibleDebt) _collect(_strategy, assets - possibleDebt, address(this));
 	}
 }
