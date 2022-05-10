@@ -15,13 +15,13 @@ contract VaultTest is Test {
 
 	function setUp() public {
 		token = new MockERC20('Mock USD', 'MUSD', 6);
-		vault = new Vault(token);
+		vault = new Vault(token, []);
 	}
 
 	function testMetadata() public {
 		assertEq(vault.name(), 'Unagii Mock USD Vault v3');
 		assertEq(vault.symbol(), 'uMUSDv3');
-		assertEq(vault.decimals(), 18);
+		assertEq(vault.decimals(), 6);
 		assertEq(address(vault.asset()), address(token));
 	}
 
