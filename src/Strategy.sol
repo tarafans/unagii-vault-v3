@@ -16,6 +16,8 @@ abstract contract Strategy {
 	Vault public immutable vault;
 	ERC20 public immutable asset;
 
+	address treasury;
+
 	uint16 public fee = 1_000;
 	uint16 constant MAX_FEE = 1_000;
 	uint16 constant FEE_BASIS = 10_000;
@@ -26,9 +28,11 @@ abstract contract Strategy {
 
 	error Unauthorized();
 
-	constructor(Vault _vault) {
+	constructor(Vault _vault, address _treasury) {
 		vault = _vault;
 		asset = vault.asset();
+
+		treasury = _treasury;
 	}
 
 	/*//////////////////////////

@@ -13,12 +13,17 @@ contract VaultTest is Test {
 	using FixedPointMathLib for uint256;
 
 	address u1 = address(0x0001);
-	address u2 = address(0x0002);
-	address u3 = address(0x0003);
+
+	// address u2 = address(0x0002);
+	// address u3 = address(0x0003);
+
+	/*///////////////////
+	/      Helpers      /
+	///////////////////*/
 
 	function setUp() public {
 		token = new MockERC20('Mock USD', 'MUSD', 6);
-		vault = new Vault(token, new address[](0));
+		vault = new Vault(token, new address[](0), 0);
 	}
 
 	function deposit(
@@ -32,6 +37,10 @@ contract VaultTest is Test {
 		vault.deposit(amount, receiver);
 		vm.stopPrank();
 	}
+
+	/*/////////////////
+	/      Tests      /
+	/////////////////*/
 
 	function testMetadata() public {
 		assertEq(vault.name(), 'Unagii Mock USD Vault v3');

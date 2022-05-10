@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.10;
+pragma solidity >=0.8.10;
 
 abstract contract BlockDelay {
 	/// @notice delay before functions with 'useBlockDelay' can be called by the same address
-	/// @dev 0 means no delay, 1 means next block
+	/// @dev 0 means no delay
 	uint256 public blockDelay;
-	uint256 public constant MAX_BLOCK_DELAY = 255; // about ~50 minutes on ETH mainnet
+	uint256 internal constant MAX_BLOCK_DELAY = 10;
 
 	mapping(address => uint256) public lastBlock;
 

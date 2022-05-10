@@ -8,10 +8,11 @@ import 'solmate/utils/SafeTransferLib.sol';
 import 'solmate/utils/FixedPointMathLib.sol';
 
 import './libraries/Ownership.sol';
+import './libraries/BlockDelay.sol';
 import './interfaces/IERC4626.sol';
 import './Strategy.sol';
 
-contract Vault is ERC20, IERC4626, Ownership {
+contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	using SafeTransferLib for ERC20;
 	using FixedPointMathLib for uint256;
 
@@ -39,19 +40,28 @@ contract Vault is ERC20, IERC4626, Ownership {
 
 	uint256 public totalDebt;
 	uint256 public totalDebtRatio;
-	uint256 public MAX_TOTAL_DEBT_RATIO = 3_600;
+	uint256 internal constant MAX_TOTAL_DEBT_RATIO = 3_600;
 
-	/*///////////////
-	/     Events    /
-	///////////////*/
+	/*//////////////////
+	/      Events      /
+	//////////////////*/
 
 	event Report(Strategy indexed strategy, uint256 gain, uint256 loss);
 
 	event StrategyAdded(Strategy indexed strategy, uint256 debtRatio);
+	event StrategyDebtRatioChanged(Strategy indexed strategy, uint256 newDebtRatio, address indexed caller);
+	event StrategyRemoved(Strategy indexed strategy, address indexed caller);
+	event StrategyQueuePositionsSwapped(
+		uint8 i,
+		uint8 j,
+		Strategy indexed newI,
+		Strategy indexed newJ,
+		address indexed caller
+	);
 
-	/*///////////////
-	/     Errors    /
-	///////////////*/
+	/*//////////////////
+	/      Errors      /
+	//////////////////*/
 
 	error Zero();
 	error BelowMinimum(uint256);
@@ -62,7 +72,13 @@ contract Vault is ERC20, IERC4626, Ownership {
 	error StrategyDoesNotBelongToQueue();
 	error StrategyQueueFull();
 
-	constructor(ERC20 _asset, address[] memory _authorized)
+	error AlreadyValue();
+
+	constructor(
+		ERC20 _asset,
+		address[] memory _authorized,
+		uint8 _blockDelay
+	)
 		ERC20(
 			// e.g. USDC becomes 'Unagii USD Coin Vault v3' and 'uUSDCv3'
 			string(abi.encodePacked('Unagii ', _asset.name(), ' Vault v3')),
@@ -70,6 +86,7 @@ contract Vault is ERC20, IERC4626, Ownership {
 			18
 		)
 		Ownership(_authorized)
+		BlockDelay(_blockDelay)
 	{
 		asset = _asset;
 	}
@@ -255,25 +272,74 @@ contract Vault is ERC20, IERC4626, Ownership {
 	/      Restricted Functions: onlyAdmins      /
 	////////////////////////////////////////////*/
 
-	function removeStrategy(Strategy _strategy) external onlyAdmins {}
+	function removeStrategy(Strategy _strategy, uint256 _minReceived) external onlyAdmins {
+		if (!strategies[_strategy].added) revert NotStrategy();
+		totalDebtRatio -= strategies[_strategy].debtRatio;
 
-	function setDebtRatio(Strategy _strategy, uint256 _newDebtRatio) external onlyAdmins {}
+		if (strategies[_strategy].debt > 0) {
+			uint256 received = _collect(_strategy, type(uint256).max, address(this));
+			if (received > _minReceived) revert BelowMinimum(received);
+		}
+
+		// reorganize queue, filling in the empty strategy
+		Strategy[] memory newQueue = new Strategy[](_queue.length - 1);
+
+		bool found;
+		for (uint8 i = 0; i < newQueue.length; ++i) {
+			if (_queue[i] == _strategy) found = true;
+
+			if (found) newQueue[i] = _queue[i + 1];
+			else newQueue[i] = _queue[i];
+		}
+
+		delete strategies[_strategy];
+		_queue = newQueue;
+
+		emit StrategyRemoved(_strategy, msg.sender);
+	}
+
+	function swapQueuePositions(uint8 _i, uint8 _j) external onlyAdmins {
+		Strategy s1 = _queue[_i];
+		Strategy s2 = _queue[_j];
+
+		_queue[_i] = s2;
+		_queue[_j] = s1;
+
+		emit StrategyQueuePositionsSwapped(_i, _j, s2, s1, msg.sender);
+	}
+
+	function setDebtRatio(Strategy _strategy, uint256 _newDebtRatio) external onlyAdmins {
+		if (!strategies[_strategy].added) revert NotStrategy();
+		_setDebtRatio(_strategy, _newDebtRatio);
+	}
 
 	function setQueue(Strategy[] calldata _newQueue) external onlyAdmins {}
 
-	function setLockedProfitDuration(uint256 _newDuration) external onlyAdmins {}
+	function setLockedProfitDuration(uint256 _newDuration) external onlyAdmins {
+		if (_newDuration > MAX_LOCKED_PROFIT_DURATION) revert AboveMaximum(_newDuration);
+		if (_newDuration == lockedProfitDuration) revert AlreadyValue();
+		lockedProfitDuration = _newDuration;
+	}
+
+	function setBlockDelay(uint8 _newDelay) external onlyAdmins {
+		_setBlockDelay(_newDelay);
+	}
 
 	/*///////////////////////////////////////////////
 	/      Restricted Functions: onlyAuthorized     /
 	///////////////////////////////////////////////*/
 
-	function suspendStrategy(Strategy _strategy) external onlyAuthorized {}
+	function suspendStrategy(Strategy _strategy) external onlyAuthorized {
+		if (!strategies[_strategy].added) revert NotStrategy();
+		_setDebtRatio(_strategy, 0);
+		_report(_strategy);
+	}
 
 	function pause() external onlyAuthorized {}
 
 	function unpause() external onlyAuthorized {}
 
-	/// @dev use if >1 strategy reporting, saves gas
+	/// @dev use if more than one strategy reporting, saves gas
 	function reportAll() external onlyAuthorized {
 		for (uint8 i = 0; i < _queue.length; ++i) {
 			_report(_queue[i]);
@@ -289,43 +355,39 @@ contract Vault is ERC20, IERC4626, Ownership {
 		lastReport = block.timestamp;
 	}
 
-	/*/////////////////////////////////////////////
-	/      Restricted Functions: onlyStrategy     /
-	/////////////////////////////////////////////*/
+	/*///////////////////////////////////////////
+	/      Internal Override: useBlockDelay     /
+	///////////////////////////////////////////*/
 
-	/*/////////////////////////////
-	/      Internal Override      /
-	/////////////////////////////*/
+	/// @dev same address cannot mint, burn send or receive share tokens on same block
+	function _mint(address _to, uint256 _amount) internal override useBlockDelay(_to) {
+		ERC20._mint(_to, _amount);
+	}
 
-	// /// @dev an address cannot mint, burn send or receive share tokens on same block
-	// function _mint(address _to, uint256 _amount) internal override useBlockDelay(_to) {
-	// 	ERC20._mint(_to, _amount);
-	// }
+	/// @dev same address cannot mint, burn send or receive share tokens on same block
+	function _burn(address _from, uint256 _amount) internal override useBlockDelay(_from) {
+		ERC20._burn(_from, _amount);
+	}
 
-	// /// @dev an address cannot mint, burn send or receive share tokens on same block
-	// function _burn(address _from, uint256 _amount) internal override useBlockDelay(_from) {
-	// 	ERC20._burn(_from, _amount);
-	// }
+	/// @dev same address cannot mint, burn send or receive share tokens on same block
+	function transfer(address _to, uint256 _amount)
+		public
+		override
+		useBlockDelay(msg.sender)
+		useBlockDelay(_to)
+		returns (bool)
+	{
+		return ERC20.transfer(_to, _amount);
+	}
 
-	// /// @dev an address cannot mint, burn send or receive share tokens on same block
-	// function transfer(address _to, uint256 _amount)
-	// 	public
-	// 	override
-	// 	useBlockDelay(msg.sender)
-	// 	useBlockDelay(_to)
-	// 	returns (bool)
-	// {
-	// 	return ERC20.transfer(_to, _amount);
-	// }
-
-	// /// @dev an address cannot mint, burn send or receive share tokens on same block
-	// function transferFrom(
-	// 	address _from,
-	// 	address _to,
-	// 	uint256 _amount
-	// ) public override useBlockDelay(_from) useBlockDelay(_to) returns (bool) {
-	// 	return ERC20.transferFrom(_from, _to, _amount);
-	// }
+	/// @dev same address cannot mint, burn send or receive share tokens on same block
+	function transferFrom(
+		address _from,
+		address _to,
+		uint256 _amount
+	) public override useBlockDelay(_from) useBlockDelay(_to) returns (bool) {
+		return ERC20.transferFrom(_from, _to, _amount);
+	}
 
 	/*//////////////////////////////
 	/      Internal Functions      /
@@ -403,6 +465,7 @@ contract Vault is ERC20, IERC4626, Ownership {
 		uint256 debt = strategies[_strategy].debt;
 
 		uint256 gain;
+		uint256 loss;
 
 		if (assets > debt) {
 			unchecked {
@@ -413,7 +476,6 @@ contract Vault is ERC20, IERC4626, Ownership {
 			_lockedProfit = lockedProfit() + gain;
 		} else if (debt > assets) {
 			unchecked {
-				uint256 loss = debt - assets;
 				totalDebt -= loss;
 
 				uint256 lockedProfitBeforeLoss = lockedProfit();
@@ -429,5 +491,20 @@ contract Vault is ERC20, IERC4626, Ownership {
 
 		if (possibleDebt > assets) _lend(_strategy, possibleDebt - assets);
 		else if (assets > possibleDebt) _collect(_strategy, assets - possibleDebt, address(this));
+
+		emit Report(_strategy, gain, loss);
+	}
+
+	function _setDebtRatio(Strategy _strategy, uint256 _newDebtRatio) internal {
+		uint256 currentDebtRatio = strategies[_strategy].debtRatio;
+		if (_newDebtRatio == currentDebtRatio) revert AlreadyValue();
+
+		uint256 newTotalDebtRatio = totalDebtRatio + _newDebtRatio - currentDebtRatio;
+		if (newTotalDebtRatio > MAX_TOTAL_DEBT_RATIO) revert AboveMaximum(newTotalDebtRatio);
+
+		strategies[_strategy].debtRatio = _newDebtRatio;
+		totalDebtRatio = newTotalDebtRatio;
+
+		emit StrategyDebtRatioChanged(_strategy, _newDebtRatio, msg.sender);
 	}
 }

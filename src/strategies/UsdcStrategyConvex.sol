@@ -15,7 +15,6 @@ contract UsdcStrategyConvex is Strategy {
 	using SafeTransferLib for ERC20;
 	using SafeTransferLib for IMetaPool;
 
-	address treasury;
 	ISwap public swap;
 
 	IMetaPool immutable pool;
@@ -52,13 +51,11 @@ contract UsdcStrategyConvex is Strategy {
 		Vault _vault,
 		address _treasury,
 		uint8 _pid
-	) Strategy(_vault) {
+	) Strategy(_vault, _treasury) {
 		(address lpToken, , , address crvRewards, , ) = booster.poolInfo(_pid);
 
 		pool = IMetaPool(lpToken);
 		reward = IBaseRewardPool(crvRewards);
-
-		treasury = _treasury;
 		pid = _pid;
 	}
 
@@ -96,6 +93,7 @@ contract UsdcStrategyConvex is Strategy {
 			uint256 rewardBalance = rewardToken.balanceOf(address(this));
 			if (rewardBalance == 0) continue;
 
+			// send CRV/CVX fee to treasury instead of swapping to USDC
 			if (fee > 0) {
 				uint256 feeAmount = (rewardBalance * fee) / FEE_BASIS;
 				rewardToken.safeTransfer(treasury, feeAmount);
@@ -104,6 +102,9 @@ contract UsdcStrategyConvex is Strategy {
 
 			swap.swapTokens(address(rewardToken), address(asset), rewardBalance, 1);
 		}
+
+		// TODO: figure out whether to transfer to vault, hold for vault or reinvest at this point
+		asset.safeTransfer(address(vault), asset.balanceOf(address(this)));
 	}
 
 	function _invest() internal override {
@@ -115,4 +116,8 @@ contract UsdcStrategyConvex is Strategy {
 		uint256 received = zap.add_liquidity(address(pool), [0, 0, assetBalance, 0], min);
 		if (!booster.deposit(pid, received, true)) revert DepositFailed();
 	}
+
+	/*//////////////////////////////
+	/      Internal Functions      /
+	//////////////////////////////*/
 }
