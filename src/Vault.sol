@@ -15,7 +15,7 @@ contract Vault is ERC20, IERC4626, Ownership {
 
 	/// @notice token which the vault uses and accumulates
 	ERC20 public immutable asset;
-	// uint256 public immutable decimalOffset; // TODO: mechanism to normalize to 18
+	// uint256 public immutable decimalOffset; // TODO: normalize share decimals to 18 regardless of token decimals?
 
 	uint256 _lockedProfit;
 	/// @notice delay before locked profits are fully released
@@ -82,7 +82,6 @@ contract Vault is ERC20, IERC4626, Ownership {
 	}
 
 	function totalInStrategies() public view returns (uint256 assets) {
-		assets += asset.balanceOf(address(this));
 		for (uint8 i = 0; i < _queue.length; ++i) {
 			assets += _queue[i].totalAssets();
 		}
