@@ -15,11 +15,13 @@ Next, install dependencies with:
 
 ```shell
 forge install
+cp .env.sample .env # and fill in RPC_URL
 ```
 
-### Testing
+### Tests
 
 ```shell
-forge build
-forge test
+make t # run all tests
+make unit # run only unit tests
+make integration # run mainnet integration tests
 ```
