@@ -333,18 +333,26 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
 	function unpause() external onlyAuthorized {}
 
-	/// @dev more gas-efficient than multiple 'harvest()' if >1 strategy
+	/// @dev more gas-efficient than multiple harvests if >1 strategy
 	function harvestAll() external onlyAuthorized {
 		for (uint8 i = 0; i < _queue.length; ++i) {
 			Strategy strategy = _queue[i];
 			strategy.harvest();
+			_report(strategy);
+		}
+
+		lastReport = block.timestamp;
+	}
+
+	/// @dev more gas-efficient than multiple reports if >1 strategy
+	function reportAll() external onlyAuthorized {
+		for (uint8 i = 0; i < _queue.length; ++i) {
 			_report(_queue[i]);
 		}
 
 		lastReport = block.timestamp;
 	}
 
-	/// @dev use if only one strategy reporting
 	function harvest(Strategy _strategy) external onlyAuthorized {
 		if (!strategies[_strategy].added) revert NotStrategy();
 
@@ -354,7 +362,6 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		lastReport = block.timestamp;
 	}
 
-	/// @dev use for a strategy's initial report before there's anything to harvest
 	function report(Strategy _strategy) external onlyAuthorized {
 		if (!strategies[_strategy].added) revert NotStrategy();
 
@@ -470,8 +477,6 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	}
 
 	function _report(Strategy _strategy) internal {
-		_strategy.harvest();
-
 		uint256 assets = _strategy.totalAssets();
 		uint256 debt = strategies[_strategy].debt;
 

@@ -93,7 +93,7 @@ contract UsdcStrategyConvexPaxTest is Test, TestHelpers {
 
 		vm.warp(block.timestamp + 14 days);
 
-		vault.report(strategy); // triggers harvest
+		vault.harvest(strategy); // triggers harvest
 
 		assertGt(strategy.totalAssets(), startingAssets);
 		assertGt(CRV.balanceOf(treasury), 0);
