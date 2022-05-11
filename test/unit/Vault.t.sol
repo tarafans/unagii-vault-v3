@@ -12,19 +12,19 @@ contract VaultTest is Test {
 	Vault vault;
 	using FixedPointMathLib for uint256;
 
-	address u1 = address(0x0001);
+	address u1 = address(0xAAA1);
 
-	// address u2 = address(0x0002);
+	// address u2 = address(0xAAA1);
 	// address u3 = address(0x0003);
-
-	/*///////////////////
-	/      Helpers      /
-	///////////////////*/
 
 	function setUp() public {
 		token = new MockERC20('Mock USD', 'MUSD', 6);
 		vault = new Vault(token, new address[](0), 0);
 	}
+
+	/*///////////////////
+	/      Helpers      /
+	///////////////////*/
 
 	function deposit(
 		address from,

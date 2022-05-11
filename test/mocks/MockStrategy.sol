@@ -9,7 +9,7 @@ import 'src/Strategy.sol';
 contract MockStrategy is Strategy {
 	using SafeTransferLib for ERC20;
 
-	constructor(Vault _vault) Strategy(_vault) {}
+	constructor(Vault _vault) Strategy(_vault, address(0)) {}
 
 	function totalAssets() public view override returns (uint256) {
 		return asset.balanceOf(address(this));

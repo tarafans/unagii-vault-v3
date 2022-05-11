@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.13;
 
+import 'forge-std/console.sol'; // TODO: remove when done
+
 import 'solmate/tokens/ERC20.sol';
 import 'solmate/utils/SafeTransferLib.sol';
 
@@ -15,11 +17,12 @@ contract UsdcStrategyConvex is Strategy {
 	using SafeTransferLib for ERC20;
 	using SafeTransferLib for IMetaPool;
 
+	/// @notice contract used to swap CRV/CVX rewards to USDC
 	ISwap public swap;
 
+	uint8 immutable pid;
 	IMetaPool immutable pool;
 	IBaseRewardPool immutable reward;
-	uint8 immutable pid;
 
 	/// @dev child contracts should override this if there are more rewards
 	ERC20[2] public rewards = [CRV, CVX];
@@ -31,7 +34,8 @@ contract UsdcStrategyConvex is Strategy {
 	ERC20 internal constant CRV = ERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
 	ERC20 internal constant CVX = ERC20(0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B);
 
-	uint256 internal constant DECIMAL_OFFSET = 1e12; // to normalize USDC to 18 decimals
+	int128 internal constant INDEX_OF_ASSET = 2; // index of USDC in metapool
+	// uint256 internal constant DECIMAL_OFFSET = 1e12; // offset USDC's 6 decimals to 18
 
 	/*///////////////
 	/     Events    /
@@ -47,16 +51,22 @@ contract UsdcStrategyConvex is Strategy {
 	error WithdrawAndUnwrapFailed();
 	error DepositFailed();
 
+	error NothingToInvest();
+
 	constructor(
 		Vault _vault,
 		address _treasury,
-		uint8 _pid
+		uint8 _pid,
+		ISwap _swap
 	) Strategy(_vault, _treasury) {
 		(address lpToken, , , address crvRewards, , ) = booster.poolInfo(_pid);
 
 		pool = IMetaPool(lpToken);
 		reward = IBaseRewardPool(crvRewards);
 		pid = _pid;
+		swap = _swap;
+
+		_approve();
 	}
 
 	/*///////////////////////
@@ -64,10 +74,17 @@ contract UsdcStrategyConvex is Strategy {
   ///////////////////////*/
 
 	function totalAssets() public view override returns (uint256 assets) {
-		uint256 rewardBalance = reward.balanceOf(address(this));
-		assets = (rewardBalance * pool.get_virtual_price()) / (1e18 * DECIMAL_OFFSET);
 		assets += asset.balanceOf(address(this));
+		uint256 rewardBalance = reward.balanceOf(address(this));
+		if (rewardBalance == 0) return assets;
+		assets += zap.calc_withdraw_one_coin(address(pool), rewardBalance, INDEX_OF_ASSET);
 	}
+
+	/*////////////////////////////////////////////////
+	/      Restricted Functions: onlyAuthorized      /
+	////////////////////////////////////////////////*/
+
+	// TODO: reapprove
 
 	/*/////////////////////////////
 	/      Internal Override      /
@@ -75,14 +92,14 @@ contract UsdcStrategyConvex is Strategy {
 
 	function _withdraw(uint256 _assets, address _receiver) internal override returns (uint256 received) {
 		uint256 assets = totalAssets();
+		if (assets == 0) return 0; // nothing to withdraw
+
 		uint256 amount = _assets > assets ? assets : _assets;
 
 		uint256 tokenAmount = (amount * reward.balanceOf(address(this))) / totalAssets();
 
-		uint256 min = _calculateSlippage(amount);
-
 		if (!reward.withdrawAndUnwrap(tokenAmount, true)) revert WithdrawAndUnwrapFailed();
-		received = zap.remove_liquidity_one_coin(address(pool), tokenAmount, int128(uint128(2)), min, _receiver);
+		received = zap.remove_liquidity_one_coin(address(pool), tokenAmount, INDEX_OF_ASSET, 0, _receiver);
 	}
 
 	function _harvest() internal override {
@@ -91,9 +108,10 @@ contract UsdcStrategyConvex is Strategy {
 		for (uint8 i = 0; i < rewards.length; ++i) {
 			ERC20 rewardToken = rewards[i];
 			uint256 rewardBalance = rewardToken.balanceOf(address(this));
+
 			if (rewardBalance == 0) continue;
 
-			// send CRV/CVX fee to treasury instead of swapping to USDC
+			// send rewards to treasury as-is
 			if (fee > 0) {
 				uint256 feeAmount = (rewardBalance * fee) / FEE_BASIS;
 				rewardToken.safeTransfer(treasury, feeAmount);
@@ -103,21 +121,48 @@ contract UsdcStrategyConvex is Strategy {
 			swap.swapTokens(address(rewardToken), address(asset), rewardBalance, 1);
 		}
 
-		// TODO: figure out whether to transfer to vault, hold for vault or reinvest at this point
+		// TODO: Option A - xfer to vault
 		asset.safeTransfer(address(vault), asset.balanceOf(address(this)));
+
+		// TODO: Option B - reinvest
+		// _invest();
 	}
 
 	function _invest() internal override {
 		uint256 assetBalance = asset.balanceOf(address(this));
-		if (assetBalance == 0) return;
+		if (assetBalance == 0) revert NothingToInvest();
 
-		uint256 min = _calculateSlippage((assetBalance * DECIMAL_OFFSET) / pool.get_virtual_price());
+		uint256 received = zap.add_liquidity(address(pool), [0, 0, assetBalance, 0], 0);
 
-		uint256 received = zap.add_liquidity(address(pool), [0, 0, assetBalance, 0], min);
 		if (!booster.deposit(pid, received, true)) revert DepositFailed();
 	}
 
 	/*//////////////////////////////
 	/      Internal Functions      /
 	//////////////////////////////*/
+
+	function _approve() internal {
+		// approve deposit USDC into zap
+		asset.safeApprove(address(zap), type(uint256).max);
+		// approve deposit lpTokens into booster
+		pool.safeApprove(address(booster), type(uint256).max);
+		// approve withdraw lpTokens back to USDC
+		pool.safeApprove(address(zap), type(uint256).max);
+
+		// approve swap rewards to USDC
+		for (uint8 i = 0; i < rewards.length; ++i) {
+			ERC20(rewards[i]).safeApprove(address(swap), type(uint256).max);
+		}
+	}
+
+	function _unapprove() internal {
+		asset.safeApprove(address(zap), 0);
+		pool.safeApprove(address(booster), 0);
+		pool.safeApprove(address(zap), 0);
+
+		// approve swap rewards to USDC
+		for (uint8 i = 0; i < rewards.length; ++i) {
+			ERC20(rewards[i]).safeApprove(address(swap), 0);
+		}
+	}
 }

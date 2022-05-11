@@ -10,17 +10,17 @@ import './Vault.sol';
  * _withdraw(uint256, address)
  * _harvest()
  * _invest()
- *
  */
 abstract contract Strategy {
 	Vault public immutable vault;
 	ERC20 public immutable asset;
 
-	address treasury;
-
+	/// @notice address which performance fees are sent to
+	address public treasury;
+	/// @dev performance fee sent to treasury
 	uint16 public fee = 1_000;
-	uint16 constant MAX_FEE = 1_000;
-	uint16 constant FEE_BASIS = 10_000;
+	uint16 public constant MAX_FEE = 1_000;
+	uint16 internal constant FEE_BASIS = 10_000;
 
 	uint16 public slip = 10;
 	uint16 constant MAX_SLIP_FACTOR = 50;
@@ -31,7 +31,6 @@ abstract contract Strategy {
 	constructor(Vault _vault, address _treasury) {
 		vault = _vault;
 		asset = vault.asset();
-
 		treasury = _treasury;
 	}
 

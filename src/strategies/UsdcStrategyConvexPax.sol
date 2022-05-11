@@ -7,6 +7,6 @@ contract UsdcStrategyConvexPax is UsdcStrategyConvex {
 	constructor(
 		Vault _vault,
 		address _treasury,
-		uint8 _pid
-	) UsdcStrategyConvex(_vault, _treasury, _pid) {}
+		ISwap _swap
+	) UsdcStrategyConvex(_vault, _treasury, 57, _swap) {}
 }

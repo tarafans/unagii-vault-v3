@@ -5,9 +5,15 @@ pragma solidity ^0.8.10;
 
 interface IDepositZap {
 	function calc_withdraw_one_coin(
-		address,
-		uint256,
-		int128
+		address pool,
+		uint256 amount,
+		int128 i
+	) external view returns (uint256);
+
+	function calc_token_amount(
+		address pool,
+		uint256[4] memory amounts,
+		bool is_deposit
 	) external view returns (uint256);
 
 	function add_liquidity(

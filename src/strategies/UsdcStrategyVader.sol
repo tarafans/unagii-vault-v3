@@ -21,7 +21,7 @@ contract UsdcStrategyVader is Strategy {
 	ERC20 private constant VADER = ERC20(0x2602278EE1882889B946eb11DC0E810075650983);
 	ERC20 private constant USDV = ERC20(0xea3Fb6f331735252E7Bfb0b24b3B761301293DBe);
 
-	uint256 internal constant DECIMAL_OFFSET = 1e12; // to normalize USDC to 18 decimals
+	int128 internal constant INDEX_OF_ASSET = 2; // index of USDC in metapool
 
 	constructor(Vault _vault, address _treasury) Strategy(_vault, _treasury) {}
 
@@ -38,19 +38,22 @@ contract UsdcStrategyVader is Strategy {
 	/      Internal Override      /
 	/////////////////////////////*/
 
-	function _withdraw(uint256 _assets, address _receiver) internal override returns (uint256 received) {}
+	function _withdraw(uint256 _assets, address _receiver) internal override returns (uint256 received) {
+		uint256 assets = totalAssets();
+		if (assets == 0) return 0;
+
+		uint256 amount = _assets > assets ? assets : _assets;
+		uint256 tokenAmount = (amount * reward.balanceOf(address(this))) / totalAssets();
+
+		reward.withdraw(tokenAmount);
+		received = zap.remove_liquidity_one_coin(address(pool), tokenAmount, INDEX_OF_ASSET, 0, _receiver);
+	}
 
 	function _harvest() internal override {
 		reward.getReward();
 		uint256 vaderBalance = VADER.balanceOf(address(this));
 		if (vaderBalance == 0) return;
 		uint256 usdvAmount = minter.partnerMint(vaderBalance, 1);
-
-		if (fee > 0) {
-			uint256 feeAmount = (usdvAmount * fee) / FEE_BASIS;
-			USDV.safeTransfer(treasury, feeAmount);
-			usdvAmount -= feeAmount;
-		}
 
 		// TODO: figure out whether to transfer to vault, hold for vault or reinvest at this point
 		uint256 received = pool.add_liquidity([usdvAmount, 0], 1);
@@ -61,9 +64,7 @@ contract UsdcStrategyVader is Strategy {
 		uint256 assetBalance = asset.balanceOf(address(this));
 		if (assetBalance == 0) return;
 
-		uint256 min = _calculateSlippage((assetBalance * DECIMAL_OFFSET) / pool.get_virtual_price());
-
-		uint256 received = zap.add_liquidity(address(pool), [0, 0, assetBalance, 0], min);
+		uint256 received = zap.add_liquidity(address(pool), [0, 0, assetBalance, 0], 0);
 		reward.stake(received);
 	}
 }

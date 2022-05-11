@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.13;
 
+import 'forge-std/console.sol'; // TODO: remove when done
+
 import 'solmate/tokens/ERC20.sol';
 import 'solmate/utils/SafeTransferLib.sol';
 
@@ -34,6 +36,7 @@ contract UsdcRewardsSwap is ISwap {
 	error UnsupportedToken(address);
 
 	constructor() {
+		// for CRV & CVX with the amounts we swap, uniswap v3 1% rate pool has the best rates
 		routes[CRV] = Route.UniswapV3Direct;
 		routes[CVX] = Route.UniswapV3Direct;
 	}
@@ -50,14 +53,12 @@ contract UsdcRewardsSwap is ISwap {
 
 		ERC20 tokenIn = ERC20(_tokenIn);
 		tokenIn.safeTransferFrom(msg.sender, address(this), _amount);
-
-		// if (route == Route.UniswapV3Direct) {
 		tokenIn.safeApprove(address(uniswap), _amount);
 
 		ISwapRouter02.ExactInputSingleParams memory params = ISwapRouter02.ExactInputSingleParams({
 			tokenIn: _tokenIn,
 			tokenOut: _tokenOut,
-			fee: 1000,
+			fee: 10_000, // 1% fee tier
 			recipient: msg.sender,
 			amountIn: _amount,
 			amountOutMinimum: _minReceived,
@@ -65,6 +66,7 @@ contract UsdcRewardsSwap is ISwap {
 		});
 
 		received = uniswap.exactInputSingle(params);
+
 		// }
 
 		// if (route == Route.UniswapV3) {

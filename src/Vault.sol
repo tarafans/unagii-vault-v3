@@ -99,14 +99,8 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		return _queue;
 	}
 
-	function totalInStrategies() public view returns (uint256 assets) {
-		for (uint8 i = 0; i < _queue.length; ++i) {
-			assets += strategies[_queue[i]].debt;
-		}
-	}
-
 	function totalAssets() public view returns (uint256 assets) {
-		return asset.balanceOf(address(this)) + totalInStrategies();
+		return asset.balanceOf(address(this)) + totalDebt;
 	}
 
 	function lockedProfit() public view returns (uint256 lockedAssets) {
@@ -339,14 +333,28 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
 	function unpause() external onlyAuthorized {}
 
-	/// @dev use if more than one strategy reporting, saves gas
-	function reportAll() external onlyAuthorized {
+	/// @dev more gas-efficient than multiple 'harvest()' if >1 strategy
+	function harvestAll() external onlyAuthorized {
 		for (uint8 i = 0; i < _queue.length; ++i) {
+			Strategy strategy = _queue[i];
+			strategy.harvest();
 			_report(_queue[i]);
 		}
+
 		lastReport = block.timestamp;
 	}
 
+	/// @dev use if only one strategy reporting
+	function harvest(Strategy _strategy) external onlyAuthorized {
+		if (!strategies[_strategy].added) revert NotStrategy();
+
+		_strategy.harvest();
+		_report(_strategy);
+
+		lastReport = block.timestamp;
+	}
+
+	/// @dev use for a strategy's initial report before there's anything to harvest
 	function report(Strategy _strategy) external onlyAuthorized {
 		if (!strategies[_strategy].added) revert NotStrategy();
 
@@ -359,17 +367,17 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	/      Internal Override: useBlockDelay     /
 	///////////////////////////////////////////*/
 
-	/// @dev same address cannot mint, burn send or receive share tokens on same block
+	/// @dev address cannot mint/burn/send/receive share tokens on same block, defense against flash loan exploits
 	function _mint(address _to, uint256 _amount) internal override useBlockDelay(_to) {
 		ERC20._mint(_to, _amount);
 	}
 
-	/// @dev same address cannot mint, burn send or receive share tokens on same block
+	/// @dev address cannot mint/burn/send/receive share tokens on same block, defense against flash loan exploits
 	function _burn(address _from, uint256 _amount) internal override useBlockDelay(_from) {
 		ERC20._burn(_from, _amount);
 	}
 
-	/// @dev same address cannot mint, burn send or receive share tokens on same block
+	/// @dev address cannot mint/burn/send/receive share tokens on same block, defense against flash loan exploits
 	function transfer(address _to, uint256 _amount)
 		public
 		override
@@ -380,7 +388,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		return ERC20.transfer(_to, _amount);
 	}
 
-	/// @dev same address cannot mint, burn send or receive share tokens on same block
+	/// @dev address cannot mint/burn/send/receive share tokens on same block, defense against flash loan exploits
 	function transferFrom(
 		address _from,
 		address _to,
@@ -429,7 +437,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		// next, withdraw from strategies
 		for (uint8 i = 0; i < _queue.length; ++i) {
 			if (_assets == 0) break;
-			uint256 received = _collect(_queue[i], _assets, _receiver); // overflow is handled by strategy
+			uint256 received = _collect(_queue[i], _assets, _receiver);
 			_assets -= received;
 		}
 	}
@@ -445,12 +453,13 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		totalDebt += amount;
 	}
 
+	/// @dev overflow is handled by strategy
 	function _collect(
 		Strategy _strategy,
 		uint256 _assets,
 		address _receiver
 	) internal returns (uint256 received) {
-		received = _strategy.withdraw(_assets, _receiver); // strategy handles overflow
+		received = _strategy.withdraw(_assets, _receiver);
 
 		uint256 debt = strategies[_strategy].debt;
 
@@ -461,8 +470,12 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	}
 
 	function _report(Strategy _strategy) internal {
+		_strategy.harvest();
+
 		uint256 assets = _strategy.totalAssets();
 		uint256 debt = strategies[_strategy].debt;
+
+		strategies[_strategy].debt = assets; // update debt
 
 		uint256 gain;
 		uint256 loss;
@@ -476,14 +489,13 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 			_lockedProfit = lockedProfit() + gain;
 		} else if (debt > assets) {
 			unchecked {
+				loss = debt - assets;
 				totalDebt -= loss;
 
 				uint256 lockedProfitBeforeLoss = lockedProfit();
 				_lockedProfit = lockedProfitBeforeLoss > loss ? lockedProfitBeforeLoss - loss : 0;
 			}
 		}
-
-		strategies[_strategy].debt = assets;
 
 		uint256 possibleDebt = totalDebtRatio == 0
 			? 0
