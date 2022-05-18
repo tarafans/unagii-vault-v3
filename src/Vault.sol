@@ -17,6 +17,9 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	/// @notice token which the vault uses and accumulates
 	ERC20 public immutable asset;
 
+	/// @notice whether deposits/withdrawals are paused
+	bool public paused;
+
 	uint256 _lockedProfit;
 	/// @notice timestamp of last report, used for locked profit calculations
 	uint256 public lastReport;
@@ -70,6 +73,8 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	error StrategyQueueFull();
 
 	error AlreadyValue();
+
+	error Paused();
 
 	constructor(
 		ERC20 _asset,
@@ -207,13 +212,13 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	/      ERC4626 Public Functions      /
 	////////////////////////////////////*/
 
-	function deposit(uint256 _assets, address _receiver) public returns (uint256 shares) {
+	function deposit(uint256 _assets, address _receiver) public whenNotPaused returns (uint256 shares) {
 		if ((shares = previewDeposit(_assets)) == 0) revert Zero();
 
 		_deposit(_assets, shares, _receiver);
 	}
 
-	function mint(uint256 _shares, address _receiver) public returns (uint256 assets) {
+	function mint(uint256 _shares, address _receiver) public whenNotPaused returns (uint256 assets) {
 		if (_shares == 0) revert Zero();
 		assets = previewMint(_shares);
 
@@ -224,7 +229,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		uint256 _assets,
 		address _receiver,
 		address _owner
-	) public returns (uint256 shares) {
+	) public whenNotPaused returns (uint256 shares) {
 		if (_assets == 0) revert Zero();
 		shares = previewWithdraw(_assets);
 
@@ -235,7 +240,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		uint256 _shares,
 		address _receiver,
 		address _owner
-	) public returns (uint256 assets) {
+	) public whenNotPaused returns (uint256 assets) {
 		if ((assets = previewRedeem(_shares)) == 0) revert Zero();
 
 		_withdraw(assets, _shares, _owner, _receiver);
@@ -324,9 +329,15 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		_report(_strategy);
 	}
 
-	function pause() external onlyAuthorized {}
+	function pause() external onlyAuthorized {
+		if (paused) revert AlreadyValue();
+		paused = true;
+	}
 
-	function unpause() external onlyAuthorized {}
+	function unpause() external onlyAuthorized {
+		if (!paused) revert AlreadyValue();
+		paused = false;
+	}
 
 	/// @dev costs less gas than multiple harvests if active strategies > 1
 	function harvestAll() external onlyAuthorized updateLastReport {
@@ -519,5 +530,10 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	modifier updateLastReport() {
 		_;
 		lastReport = block.timestamp;
+	}
+
+	modifier whenNotPaused() {
+		if (paused) revert Paused();
+		_;
 	}
 }
