@@ -22,20 +22,34 @@ contract UsdcStrategyVader is Strategy {
 	ERC20 private constant USDV = ERC20(0xea3Fb6f331735252E7Bfb0b24b3B761301293DBe);
 
 	int128 internal constant INDEX_OF_ASSET = 2; // index of USDC in metapool
+	uint256 internal constant DECIMAL_OFFSET = 1e12; // normalize USDC to 18 decimals
 
 	constructor(
 		Vault _vault,
 		address _treasury,
 		address[] memory _authorized
-	) Strategy(_vault, _treasury, _authorized) {}
+	) Strategy(_vault, _treasury, _authorized) {
+		_approve();
+	}
 
 	/*///////////////////////
 	/      Public View      /
   ///////////////////////*/
 
 	function totalAssets() public view override returns (uint256 assets) {
-		assets += zap.calc_withdraw_one_coin(address(pool), reward.balanceOf(address(this)), 2);
 		assets += asset.balanceOf(address(this));
+		uint256 rewardBalance = reward.balanceOf(address(this));
+		if (rewardBalance == 0) return assets;
+		assets += zap.calc_withdraw_one_coin(address(pool), reward.balanceOf(address(this)), 2);
+	}
+
+	/*////////////////////////////////////////////////
+	/      Restricted Functions: onlyAuthorized      /
+	////////////////////////////////////////////////*/
+
+	function reapprove() external onlyAuthorized {
+		_unapprove();
+		_approve();
 	}
 
 	/*/////////////////////////////
@@ -57,10 +71,17 @@ contract UsdcStrategyVader is Strategy {
 		reward.getReward();
 		uint256 vaderBalance = VADER.balanceOf(address(this));
 		if (vaderBalance == 0) return;
-		uint256 usdvAmount = minter.partnerMint(vaderBalance, 1);
 
-		// TODO: figure out whether to transfer to vault, hold for vault or reinvest at this point
-		uint256 received = pool.add_liquidity([usdvAmount, 0], 1);
+		minter.partnerMint(vaderBalance, 1);
+		uint256 usdvBalance = USDV.balanceOf(address(this));
+
+		if (fee > 0) {
+			uint256 feeAmount = (usdvBalance * fee) / FEE_BASIS;
+			USDV.safeTransfer(treasury, feeAmount);
+			usdvBalance -= feeAmount;
+		}
+
+		uint256 received = pool.add_liquidity([usdvBalance, 0], 1);
 		reward.stake(received);
 	}
 
@@ -70,5 +91,30 @@ contract UsdcStrategyVader is Strategy {
 
 		uint256 received = zap.add_liquidity(address(pool), [0, 0, assetBalance, 0], 0);
 		reward.stake(received);
+	}
+
+	/*//////////////////////////////
+	/      Internal Functions      /
+	//////////////////////////////*/
+
+	function _approve() internal {
+		// approve deposit USDC into zap
+		asset.safeApprove(address(zap), type(uint256).max);
+		// approve deposit lpTokens into reward
+		pool.safeApprove(address(reward), type(uint256).max);
+		// approve withdraw lpTokens
+		pool.safeApprove(address(zap), type(uint256).max);
+		// approve deposit USDV into pool
+		USDV.safeApprove(address(pool), type(uint256).max);
+		// approve burn VADER for USDV
+		VADER.safeApprove(address(USDV), type(uint256).max);
+	}
+
+	function _unapprove() internal {
+		asset.safeApprove(address(zap), 0);
+		pool.safeApprove(address(reward), 0);
+		pool.safeApprove(address(zap), 0);
+		USDV.safeApprove(address(pool), 0);
+		VADER.safeApprove(address(USDV), 0);
 	}
 }
