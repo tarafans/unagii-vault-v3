@@ -23,7 +23,11 @@ contract UsdcStrategyVader is Strategy {
 
 	int128 internal constant INDEX_OF_ASSET = 2; // index of USDC in metapool
 
-	constructor(Vault _vault, address _treasury) Strategy(_vault, _treasury) {}
+	constructor(
+		Vault _vault,
+		address _treasury,
+		address[] memory _authorized
+	) Strategy(_vault, _treasury, _authorized) {}
 
 	/*///////////////////////
 	/      Public View      /

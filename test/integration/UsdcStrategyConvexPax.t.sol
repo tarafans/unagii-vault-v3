@@ -28,7 +28,7 @@ contract UsdcStrategyConvexPaxTest is Test, TestHelpers {
 	function setUp() public {
 		vault = new Vault(usdc, new address[](0), 0);
 		swap = new UsdcRewardsSwap();
-		strategy = new UsdcStrategyConvexPax(vault, treasury, swap);
+		strategy = new UsdcStrategyConvexPax(vault, treasury, new address[](0), swap);
 		vault.addStrategy(strategy, 100);
 
 		usdcWhaleBalance = usdc.balanceOf(usdcWhale);

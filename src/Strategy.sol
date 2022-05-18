@@ -4,14 +4,14 @@ pragma solidity ^0.8.13;
 import './Vault.sol';
 
 /** @dev
- * Strategies must implement the following virtual functions:
+ * Strategies have to implement the following virtual functions:
  *
  * totalAssets()
  * _withdraw(uint256, address)
  * _harvest()
  * _invest()
  */
-abstract contract Strategy {
+abstract contract Strategy is Ownership {
 	Vault public immutable vault;
 	ERC20 public immutable asset;
 
@@ -22,13 +22,25 @@ abstract contract Strategy {
 	uint16 public constant MAX_FEE = 1_000;
 	uint16 internal constant FEE_BASIS = 10_000;
 
-	uint16 public slip = 10;
-	uint16 constant MAX_SLIP_FACTOR = 50;
-	uint16 constant SLIP_BASIS = 1_000;
+	/// @notice used to calculate slippage with SLIP_BASIS
+	/// @dev default to 99% (or 1%)
+	uint16 public slip = 990;
+	uint16 internal constant SLIP_BASIS = 1_000;
 
-	error Unauthorized();
+	/*//////////////////
+	/      Errors      /
+	//////////////////*/
 
-	constructor(Vault _vault, address _treasury) {
+	error Zero();
+	error NotVault();
+	error InvalidValue();
+	error AlreadyValue();
+
+	constructor(
+		Vault _vault,
+		address _treasury,
+		address[] memory _authorized
+	) Ownership(_authorized) {
 		vault = _vault;
 		asset = vault.asset();
 		treasury = _treasury;
@@ -57,6 +69,26 @@ abstract contract Strategy {
 		_invest();
 	}
 
+	/*///////////////////////////////////////////
+	/      Restricted Functions: onlyOwner      /
+	///////////////////////////////////////////*/
+
+	function setFee(uint16 _fee) external onlyOwner {
+		if (_fee > MAX_FEE) revert InvalidValue();
+		if (_fee == fee) revert AlreadyValue();
+		fee = _fee;
+	}
+
+	/*////////////////////////////////////////////
+	/      Restricted Functions: onlyAdmins      /
+	////////////////////////////////////////////*/
+
+	function setSlip(uint16 _slip) external onlyAdmins {
+		if (_slip > SLIP_BASIS) revert InvalidValue();
+		if (_slip == slip) revert AlreadyValue();
+		slip = _slip;
+	}
+
 	/*////////////////////////////
 	/      Internal Virtual      /
 	////////////////////////////*/
@@ -73,11 +105,11 @@ abstract contract Strategy {
 	//////////////////////////////*/
 
 	function _calculateSlippage(uint256 _amount) internal view returns (uint256) {
-		return (_amount * (SLIP_BASIS - slip)) / SLIP_BASIS;
+		return (_amount * slip) / SLIP_BASIS;
 	}
 
 	modifier onlyVault() {
-		if (msg.sender != address(vault)) revert Unauthorized();
+		if (msg.sender != address(vault)) revert NotVault();
 		_;
 	}
 }

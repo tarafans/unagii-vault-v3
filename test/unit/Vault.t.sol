@@ -45,7 +45,7 @@ contract VaultTest is Test {
 	function testMetadata() public {
 		assertEq(vault.name(), 'Unagii Mock USD Vault v3');
 		assertEq(vault.symbol(), 'uMUSDv3');
-		assertEq(vault.decimals(), 18);
+		assertEq(vault.decimals(), 6);
 		assertEq(address(vault.asset()), address(token));
 	}
 

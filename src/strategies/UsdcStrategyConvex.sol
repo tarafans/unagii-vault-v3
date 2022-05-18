@@ -11,6 +11,7 @@ import '../external/convex/IBooster.sol';
 import '../external/curve/IDepositZap.sol';
 import '../external/curve/IMetaPool.sol';
 import '../interfaces/ISwap.sol';
+import '../libraries/Ownership.sol';
 import '../Strategy.sol';
 
 contract UsdcStrategyConvex is Strategy {
@@ -35,7 +36,6 @@ contract UsdcStrategyConvex is Strategy {
 	ERC20 internal constant CVX = ERC20(0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B);
 
 	int128 internal constant INDEX_OF_ASSET = 2; // index of USDC in metapool
-	// uint256 internal constant DECIMAL_OFFSET = 1e12; // offset USDC's 6 decimals to 18
 
 	/*///////////////
 	/     Events    /
@@ -56,9 +56,10 @@ contract UsdcStrategyConvex is Strategy {
 	constructor(
 		Vault _vault,
 		address _treasury,
+		address[] memory _authorized,
 		uint8 _pid,
 		ISwap _swap
-	) Strategy(_vault, _treasury) {
+	) Strategy(_vault, _treasury, _authorized) {
 		(address lpToken, , , address crvRewards, , ) = booster.poolInfo(_pid);
 
 		pool = IMetaPool(lpToken);
@@ -80,11 +81,32 @@ contract UsdcStrategyConvex is Strategy {
 		assets += zap.calc_withdraw_one_coin(address(pool), rewardBalance, INDEX_OF_ASSET);
 	}
 
+	/*///////////////////////////////////////////
+	/      Restricted Functions: onlyOwner      /
+	///////////////////////////////////////////*/
+
+	function changeSwap(ISwap _swap) external onlyOwner {
+		swap = _swap;
+	}
+
+	/*////////////////////////////////////////////
+	/      Restricted Functions: onlyAdmins      /
+	////////////////////////////////////////////*/
+
+	function setFee(uint16 _fee) external onlyAdmins {}
+
+	function setSlip(uint16 _slip) external onlyAdmins {}
+
 	/*////////////////////////////////////////////////
 	/      Restricted Functions: onlyAuthorized      /
 	////////////////////////////////////////////////*/
 
 	// TODO: reapprove
+
+	function reapprove() external onlyAuthorized {
+		_unapprove();
+		_approve();
+	}
 
 	/*/////////////////////////////
 	/      Internal Override      /

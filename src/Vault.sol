@@ -18,7 +18,6 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
 	/// @notice token which the vault uses and accumulates
 	ERC20 public immutable asset;
-	// uint256 public immutable decimalOffset; // TODO: normalize share decimals to 18 regardless of token decimals?
 
 	uint256 _lockedProfit;
 	/// @notice timestamp of last report, used for locked profit calculations
@@ -36,7 +35,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	Strategy[] _queue;
 	mapping(Strategy => StrategyParams) public strategies;
 
-	uint256 internal constant MAX_QUEUE_LENGTH = 20;
+	uint8 internal constant MAX_QUEUE_LENGTH = 20;
 
 	uint256 public totalDebt;
 	uint256 public totalDebtRatio;
@@ -83,7 +82,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 			// e.g. USDC becomes 'Unagii USD Coin Vault v3' and 'uUSDCv3'
 			string(abi.encodePacked('Unagii ', _asset.name(), ' Vault v3')),
 			string(abi.encodePacked('u', _asset.symbol(), 'v3')),
-			18
+			_asset.decimals()
 		)
 		Ownership(_authorized)
 		BlockDelay(_blockDelay)
@@ -110,7 +109,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		unchecked {
 			// won't overflow since time is nowhere near uint256.max
 			if (block.timestamp >= last + duration) return 0;
-			// this can overflow if _lockedProfit * difference > uint256.max but in practice should never happen
+			// can overflow if _lockedProfit * difference > uint256.max but in practice should never happen
 			return _lockedProfit - ((_lockedProfit * (block.timestamp - last)) / duration);
 		}
 	}
@@ -307,8 +306,6 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		_setDebtRatio(_strategy, _newDebtRatio);
 	}
 
-	function setQueue(Strategy[] calldata _newQueue) external onlyAdmins {}
-
 	function setLockedProfitDuration(uint256 _newDuration) external onlyAdmins {
 		if (_newDuration > MAX_LOCKED_PROFIT_DURATION) revert AboveMaximum(_newDuration);
 		if (_newDuration == lockedProfitDuration) revert AlreadyValue();
@@ -333,41 +330,33 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
 	function unpause() external onlyAuthorized {}
 
-	/// @dev more gas-efficient than multiple harvests if >1 strategy
-	function harvestAll() external onlyAuthorized {
+	/// @dev costs less gas than multiple harvests if active strategies > 1
+	function harvestAll() external onlyAuthorized updateLastReport {
 		for (uint8 i = 0; i < _queue.length; ++i) {
 			Strategy strategy = _queue[i];
 			strategy.harvest();
 			_report(strategy);
 		}
-
-		lastReport = block.timestamp;
 	}
 
-	/// @dev more gas-efficient than multiple reports if >1 strategy
-	function reportAll() external onlyAuthorized {
+	/// @dev costs less gas than multiple reports if active strategies > 1
+	function reportAll() external onlyAuthorized updateLastReport {
 		for (uint8 i = 0; i < _queue.length; ++i) {
 			_report(_queue[i]);
 		}
-
-		lastReport = block.timestamp;
 	}
 
-	function harvest(Strategy _strategy) external onlyAuthorized {
+	function harvest(Strategy _strategy) external onlyAuthorized updateLastReport {
 		if (!strategies[_strategy].added) revert NotStrategy();
 
 		_strategy.harvest();
 		_report(_strategy);
-
-		lastReport = block.timestamp;
 	}
 
-	function report(Strategy _strategy) external onlyAuthorized {
+	function report(Strategy _strategy) external onlyAuthorized updateLastReport {
 		if (!strategies[_strategy].added) revert NotStrategy();
 
-		_report(Strategy(_strategy));
-
-		lastReport = block.timestamp;
+		_report(_strategy);
 	}
 
 	/*///////////////////////////////////////////
@@ -523,5 +512,14 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		totalDebtRatio = newTotalDebtRatio;
 
 		emit StrategyDebtRatioChanged(_strategy, _newDebtRatio, msg.sender);
+	}
+
+	/*/////////////////////
+	/      Modifiers      /
+	/////////////////////*/
+
+	modifier updateLastReport() {
+		_;
+		lastReport = block.timestamp;
 	}
 }

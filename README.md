@@ -11,7 +11,7 @@ foundryup
 
 Alternative Foundry installation instructions can be found [here](https://book.getfoundry.sh/getting-started/installation.html).
 
-Next, install dependencies with:
+Next:
 
 ```shell
 forge install
@@ -21,7 +21,7 @@ cp .env.sample .env # and fill in RPC_URL
 ### Tests
 
 ```shell
-make t # run all tests
+make test # run all tests
 make unit # run only unit tests
 make integration # run mainnet integration tests
 ```
