@@ -36,6 +36,7 @@ contract UsdcStrategyConvex is Strategy {
 	ERC20 internal constant CVX = ERC20(0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B);
 
 	int128 internal constant INDEX_OF_ASSET = 2; // index of USDC in metapool
+	uint256 internal constant DECIMAL_OFFSET = 1e12; // normalize USDC to 18 decimals
 
 	/*///////////////
 	/     Events    /
@@ -78,7 +79,7 @@ contract UsdcStrategyConvex is Strategy {
 		assets += asset.balanceOf(address(this));
 		uint256 rewardBalance = reward.balanceOf(address(this));
 		if (rewardBalance == 0) return assets;
-		assets += zap.calc_withdraw_one_coin(address(pool), rewardBalance, INDEX_OF_ASSET);
+		assets += (rewardBalance * pool.get_virtual_price()) / (1e18 * DECIMAL_OFFSET);
 	}
 
 	/*///////////////////////////////////////////
@@ -86,22 +87,14 @@ contract UsdcStrategyConvex is Strategy {
 	///////////////////////////////////////////*/
 
 	function changeSwap(ISwap _swap) external onlyOwner {
+		_unapprove();
 		swap = _swap;
+		_approve();
 	}
-
-	/*////////////////////////////////////////////
-	/      Restricted Functions: onlyAdmins      /
-	////////////////////////////////////////////*/
-
-	function setFee(uint16 _fee) external onlyAdmins {}
-
-	function setSlip(uint16 _slip) external onlyAdmins {}
 
 	/*////////////////////////////////////////////////
 	/      Restricted Functions: onlyAuthorized      /
 	////////////////////////////////////////////////*/
-
-	// TODO: reapprove
 
 	function reapprove() external onlyAuthorized {
 		_unapprove();
@@ -133,7 +126,7 @@ contract UsdcStrategyConvex is Strategy {
 
 			if (rewardBalance == 0) continue;
 
-			// send rewards to treasury as-is
+			// send rewards to treasury
 			if (fee > 0) {
 				uint256 feeAmount = (rewardBalance * fee) / FEE_BASIS;
 				rewardToken.safeTransfer(treasury, feeAmount);
@@ -143,11 +136,8 @@ contract UsdcStrategyConvex is Strategy {
 			swap.swapTokens(address(rewardToken), address(asset), rewardBalance, 1);
 		}
 
-		// TODO: Option A - xfer to vault
+		// TODO: check if _investing costs less gas here
 		asset.safeTransfer(address(vault), asset.balanceOf(address(this)));
-
-		// TODO: Option B - reinvest
-		// _invest();
 	}
 
 	function _invest() internal override {
@@ -168,12 +158,12 @@ contract UsdcStrategyConvex is Strategy {
 		asset.safeApprove(address(zap), type(uint256).max);
 		// approve deposit lpTokens into booster
 		pool.safeApprove(address(booster), type(uint256).max);
-		// approve withdraw lpTokens back to USDC
+		// approve withdraw lpTokens
 		pool.safeApprove(address(zap), type(uint256).max);
 
 		// approve swap rewards to USDC
 		for (uint8 i = 0; i < rewards.length; ++i) {
-			ERC20(rewards[i]).safeApprove(address(swap), type(uint256).max);
+			rewards[i].safeApprove(address(swap), type(uint256).max);
 		}
 	}
 
@@ -184,7 +174,7 @@ contract UsdcStrategyConvex is Strategy {
 
 		// approve swap rewards to USDC
 		for (uint8 i = 0; i < rewards.length; ++i) {
-			ERC20(rewards[i]).safeApprove(address(swap), 0);
+			rewards[i].safeApprove(address(swap), 0);
 		}
 	}
 }

@@ -22,7 +22,7 @@ contract UsdcStrategyConvexPaxTest is Test, TestHelpers {
 	ERC20 constant CRV = ERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
 	ERC20 constant CVX = ERC20(0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B);
 
-	address constant u1 = address(0xAAA1);
+	address constant u1 = address(0xABCD);
 	address constant treasury = address(0xAAAF);
 
 	function setUp() public {
@@ -56,18 +56,18 @@ contract UsdcStrategyConvexPaxTest is Test, TestHelpers {
 	/////////////////*/
 
 	function testDepositAndInvest(uint256 amount) public {
-		vm.assume(amount > 0 && amount <= usdcWhaleBalance);
+		vm.assume(amount >= 1e6 && amount <= usdcWhaleBalance);
 
 		depositUsdc(u1, amount, u1);
 
 		assertEq(vault.totalAssets(), amount);
 
 		vault.report(strategy);
-		assertCloseTo(strategy.totalAssets(), amount, 1); // 1%
+		assertCloseTo(strategy.totalAssets(), amount, 25); // 2.5%
 	}
 
 	function testWithdraw(uint256 amount) public {
-		vm.assume(amount > 0 && amount <= usdcWhaleBalance);
+		vm.assume(amount >= 1e6 && amount <= usdcWhaleBalance);
 
 		depositUsdc(u1, amount, u1);
 
@@ -76,11 +76,11 @@ contract UsdcStrategyConvexPaxTest is Test, TestHelpers {
 		vm.startPrank(u1);
 		vault.redeem(vault.balanceOf(u1), u1, u1);
 
-		assertCloseTo(usdc.balanceOf(u1), amount, 1);
+		assertCloseTo(usdc.balanceOf(u1), amount, 1); // 0.1%
 	}
 
 	function testHarvest(uint256 amount) public {
-		vm.assume(amount > 1e6 && amount <= usdcWhaleBalance);
+		vm.assume(amount >= 1e6 && amount <= usdcWhaleBalance);
 
 		depositUsdc(u1, amount, u1);
 
@@ -93,7 +93,7 @@ contract UsdcStrategyConvexPaxTest is Test, TestHelpers {
 
 		vm.warp(block.timestamp + 14 days);
 
-		vault.harvest(strategy); // triggers harvest
+		vault.harvest(strategy);
 
 		assertGt(strategy.totalAssets(), startingAssets);
 		assertGt(CRV.balanceOf(treasury), 0);
