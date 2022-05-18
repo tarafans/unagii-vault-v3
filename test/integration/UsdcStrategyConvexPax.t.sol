@@ -6,7 +6,7 @@ import 'solmate/tokens/ERC20.sol';
 import 'src/external/usdc/USDC.sol';
 import 'src/Vault.sol';
 import 'src/strategies/UsdcStrategyConvexPax.sol';
-import 'src/swaps/UsdcRewardsSwap.sol';
+import 'src/swaps/UsdcSwap.sol';
 import '../TestHelpers.sol';
 
 contract UsdcStrategyConvexPaxTest is Test, TestHelpers {
@@ -14,20 +14,19 @@ contract UsdcStrategyConvexPaxTest is Test, TestHelpers {
 	ISwap swap;
 	Strategy strategy;
 
-	USDC constant usdc = USDC(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+	address constant u1 = address(0xABCD);
+	address constant treasury = address(0xAAAF);
 
+	USDC constant usdc = USDC(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
 	address constant usdcWhale = 0x55FE002aefF02F77364de339a1292923A15844B8; // Circle
 	uint256 usdcWhaleBalance;
 
 	ERC20 constant CRV = ERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
 	ERC20 constant CVX = ERC20(0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B);
 
-	address constant u1 = address(0xABCD);
-	address constant treasury = address(0xAAAF);
-
 	function setUp() public {
 		vault = new Vault(usdc, new address[](0), 0);
-		swap = new UsdcRewardsSwap();
+		swap = new UsdcSwap();
 		strategy = new UsdcStrategyConvexPax(vault, treasury, new address[](0), swap);
 		vault.addStrategy(strategy, 100);
 
@@ -63,7 +62,7 @@ contract UsdcStrategyConvexPaxTest is Test, TestHelpers {
 		assertEq(vault.totalAssets(), amount);
 
 		vault.report(strategy);
-		assertCloseTo(strategy.totalAssets(), amount, 25); // 2.5%
+		assertCloseTo(strategy.totalAssets(), amount, 30); // 3%
 	}
 
 	function testWithdraw(uint256 amount) public {

@@ -14,9 +14,6 @@ contract VaultTest is Test {
 
 	address u1 = address(0xAAA1);
 
-	// address u2 = address(0xAAA1);
-	// address u3 = address(0x0003);
-
 	function setUp() public {
 		token = new MockERC20('Mock USD', 'MUSD', 6);
 		vault = new Vault(token, new address[](0), 0);
