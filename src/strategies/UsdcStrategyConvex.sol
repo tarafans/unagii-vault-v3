@@ -109,6 +109,10 @@ contract UsdcStrategyConvex is Strategy {
 
 		uint256 amount = _assets > assets ? assets : _assets;
 
+        // TODO: 
+        // bal = asset.balanceOf(address(this))
+        // amount to withdraw = amount - bal
+        // tokenAmount = amount to withdraw * reward.balanceOf(address(this)) / (totalAssets - bal)
 		uint256 tokenAmount = (amount * reward.balanceOf(address(this))) / totalAssets();
 
 		if (!reward.withdrawAndUnwrap(tokenAmount, true)) revert WithdrawAndUnwrapFailed();
@@ -135,6 +139,7 @@ contract UsdcStrategyConvex is Strategy {
 		}
 
 		// TODO: check if _investing costs less gas here
+        // TODO: does direct transfer to vault mess up debt calculations?
 		asset.safeTransfer(address(vault), asset.balanceOf(address(this)));
 	}
 
