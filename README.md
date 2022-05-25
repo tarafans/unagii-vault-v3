@@ -19,5 +19,6 @@ cp .env.sample .env # and fill in RPC_URL
 ### Tests
 
 ```shell
-make test
+make test # run all tests (unit & integration)
+make unit # run only vault unit tests
 ```

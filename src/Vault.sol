@@ -4,18 +4,13 @@ pragma solidity ^0.8.13;
 
 import 'solmate/tokens/ERC20.sol';
 import 'solmate/utils/SafeTransferLib.sol';
-// TODO: remove FixedPointMathLib if possible,
-// I think math can be handled the same way as previous vaults, scale by 1e18
 import 'solmate/utils/FixedPointMathLib.sol';
 
 import './libraries/Ownership.sol';
 import './libraries/BlockDelay.sol';
-// TODO: see solmate ERC4626 for reference?
-// https://github.com/Rari-Capital/solmate/blob/main/src/mixins/ERC4626.sol
 import './interfaces/IERC4626.sol';
 import './Strategy.sol';
 
-// TODO: replace internal with private whereever possible
 contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	using SafeTransferLib for ERC20;
 	using FixedPointMathLib for uint256;
@@ -26,14 +21,12 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	/// @notice whether deposits/withdrawals are paused
 	bool public paused;
 
-    // TODO: declare private
-	uint256 _lockedProfit;
+	uint256 private _lockedProfit;
 	/// @notice timestamp of last report, used for locked profit calculations
 	uint256 public lastReport;
 	/// @notice period over which profits are gradually unlocked, defense against sandwich attacks
 	uint256 public lockedProfitDuration = 6 hours;
-    // TODO: constants can be private 
-	uint256 public constant MAX_LOCKED_PROFIT_DURATION = 3 days;
+	uint256 internal constant MAX_LOCKED_PROFIT_DURATION = 3 days;
 
 	struct StrategyParams {
 		bool added;
@@ -41,39 +34,28 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		uint256 debtRatio;
 	}
 
-    // TODO: declare private 
-	Strategy[] _queue;
+	Strategy[] private _queue;
 	mapping(Strategy => StrategyParams) public strategies;
 
-    // TODO: constants can be private 
 	uint8 internal constant MAX_QUEUE_LENGTH = 20;
 
 	uint256 public totalDebt;
 	uint256 public totalDebtRatio;
-    // TODO: constants can be private 
-    // TODO: why 3600? why not easy number like 1000?
-	uint256 internal constant MAX_TOTAL_DEBT_RATIO = 3_600;
+	uint256 internal constant MAX_TOTAL_DEBT_RATIO = 1_000;
+
+	/// @dev used to normalize share calculations to 18 decimals
+	uint256 internal immutable OFFSET;
 
 	/*//////////////////
 	/      Events      /
 	//////////////////*/
 
-    // TODO: change Strategy to address if there is problem verifying this contract
 	event Report(Strategy indexed strategy, uint256 gain, uint256 loss);
 
 	event StrategyAdded(Strategy indexed strategy, uint256 debtRatio);
-    // TODO: caller necessary? Do we really care who called it?
-	event StrategyDebtRatioChanged(Strategy indexed strategy, uint256 newDebtRatio, address indexed caller);
-    // TODO: caller necessary?
-	event StrategyRemoved(Strategy indexed strategy, address indexed caller);
-    // TODO: caller necessary?
-	event StrategyQueuePositionsSwapped(
-		uint8 i,
-		uint8 j,
-		Strategy indexed newI,
-		Strategy indexed newJ,
-		address indexed caller
-	);
+	event StrategyDebtRatioChanged(Strategy indexed strategy, uint256 newDebtRatio);
+	event StrategyRemoved(Strategy indexed strategy);
+	event StrategyQueuePositionsSwapped(uint8 i, uint8 j, Strategy indexed newI, Strategy indexed newJ);
 
 	/*//////////////////
 	/      Errors      /
@@ -92,13 +74,13 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
 	error Paused();
 
+	/// @dev e.g. USDC becomes 'Unagii USD Coin Vault v3' and 'uUSDCv3'
 	constructor(
 		ERC20 _asset,
 		address[] memory _authorized,
 		uint8 _blockDelay
 	)
 		ERC20(
-			// e.g. USDC becomes 'Unagii USD Coin Vault v3' and 'uUSDCv3'
 			string(abi.encodePacked('Unagii ', _asset.name(), ' Vault v3')),
 			string(abi.encodePacked('u', _asset.symbol(), 'v3')),
 			_asset.decimals()
@@ -107,6 +89,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		BlockDelay(_blockDelay)
 	{
 		asset = _asset;
+		OFFSET = 10**(18 - _asset.decimals());
 	}
 
 	/*///////////////////////
@@ -128,7 +111,6 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		unchecked {
 			// won't overflow since time is nowhere near uint256.max
 			if (block.timestamp >= last + duration) return 0;
-            // TODO: if duration = 0?
 			// can overflow if _lockedProfit * difference > uint256.max but in practice should never happen
 			return _lockedProfit - ((_lockedProfit * (block.timestamp - last)) / duration);
 		}
@@ -161,7 +143,6 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	}
 
 	function previewMint(uint256 shares) public view returns (uint256 assets) {
-        // TODO: use convertToAssets?
 		uint256 supply = totalSupply;
 		return supply == 0 ? shares : shares.mulDivUp(totalAssets(), supply);
 	}
@@ -287,21 +268,20 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	////////////////////////////////////////////*/
 
 	function removeStrategy(Strategy _strategy, uint256 _minReceived) external onlyAdmins {
-        // TODO: Load strategy to memory to save gas
 		if (!strategies[_strategy].added) revert NotStrategy();
 		totalDebtRatio -= strategies[_strategy].debtRatio;
 
 		if (strategies[_strategy].debt > 0) {
 			uint256 received = _collect(_strategy, type(uint256).max, address(this));
-            // TODO: if received < _minReceived
-			if (received > _minReceived) revert BelowMinimum(received);
+			if (received < _minReceived) revert BelowMinimum(received);
 		}
 
 		// reorganize queue, filling in the empty strategy
 		Strategy[] memory newQueue = new Strategy[](_queue.length - 1);
 
 		bool found;
-		for (uint8 i = 0; i < newQueue.length; ++i) {
+		uint8 length = uint8(newQueue.length);
+		for (uint8 i = 0; i < length; ++i) {
 			if (_queue[i] == _strategy) found = true;
 
 			if (found) newQueue[i] = _queue[i + 1];
@@ -311,7 +291,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		delete strategies[_strategy];
 		_queue = newQueue;
 
-		emit StrategyRemoved(_strategy, msg.sender);
+		emit StrategyRemoved(_strategy);
 	}
 
 	function swapQueuePositions(uint8 _i, uint8 _j) external onlyAdmins {
@@ -321,7 +301,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		_queue[_i] = s2;
 		_queue[_j] = s1;
 
-		emit StrategyQueuePositionsSwapped(_i, _j, s2, s1, msg.sender);
+		emit StrategyQueuePositionsSwapped(_i, _j, s2, s1);
 	}
 
 	function setDebtRatio(Strategy _strategy, uint256 _newDebtRatio) external onlyAdmins {
@@ -329,7 +309,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		_setDebtRatio(_strategy, _newDebtRatio);
 	}
 
-    // TODO: can duration = 0? Will it cause other problems like failing view functions?
+	/// @dev locked profit duration can be 0
 	function setLockedProfitDuration(uint256 _newDuration) external onlyAdmins {
 		if (_newDuration > MAX_LOCKED_PROFIT_DURATION) revert AboveMaximum(_newDuration);
 		if (_newDuration == lockedProfitDuration) revert AlreadyValue();
@@ -347,8 +327,11 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	function suspendStrategy(Strategy _strategy) external onlyAuthorized {
 		if (!strategies[_strategy].added) revert NotStrategy();
 		_setDebtRatio(_strategy, 0);
-        // TODO: remove report, simply disable strategy
-		_report(_strategy);
+	}
+
+	function collectFromStrategy(Strategy _strategy, uint256 _assets) external onlyAuthorized {
+		if (!strategies[_strategy].added) revert NotStrategy();
+		_collect(_strategy, _assets, address(this));
 	}
 
 	function pause() external onlyAuthorized {
@@ -363,8 +346,8 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
 	/// @dev costs less gas than multiple harvests if active strategies > 1
 	function harvestAll() external onlyAuthorized updateLastReport {
-        // TODO: len = _queue.length might save gas
-		for (uint8 i = 0; i < _queue.length; ++i) {
+		uint8 length = uint8(_queue.length);
+		for (uint8 i = 0; i < length; ++i) {
 			Strategy strategy = _queue[i];
 			strategy.harvest();
 			_report(strategy);
@@ -373,8 +356,8 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
 	/// @dev costs less gas than multiple reports if active strategies > 1
 	function reportAll() external onlyAuthorized updateLastReport {
-        // TODO: len = _queue.length might save gas
-		for (uint8 i = 0; i < _queue.length; ++i) {
+		uint8 length = uint8(_queue.length);
+		for (uint8 i = 0; i < length; ++i) {
 			_report(_queue[i]);
 		}
 	}
@@ -392,7 +375,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		_report(_strategy);
 	}
 
-    // TODO: function to withdraw from strategy (onlyAuthorized)
+	// TODO: function to withdraw from strategy (onlyAuthorized)
 
 	/*///////////////////////////////////////////
 	/      Internal Override: useBlockDelay     /
@@ -400,7 +383,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
 	/// @dev address cannot mint/burn/send/receive share tokens on same block, defense against flash loan exploits
 	function _mint(address _to, uint256 _amount) internal override useBlockDelay(_to) {
-        // TODO: require cannot mint to zero address
+		if (_to == address(0)) revert Zero();
 		ERC20._mint(_to, _amount);
 	}
 
@@ -467,10 +450,10 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		}
 
 		// next, withdraw from strategies
-        // TODO: len = _queue.length to save gas
-		for (uint8 i = 0; i < _queue.length; ++i) {
+		uint8 length = uint8(_queue.length);
+		for (uint8 i = 0; i < length; ++i) {
 			if (_assets == 0) break;
-            // TODO: return (received, loss) and penalize slippage, deduct loss from _assets
+			// TODO: return (received, loss) and penalize slippage, deduct loss from _assets
 			uint256 received = _collect(_queue[i], _assets, _receiver);
 			_assets -= received;
 		}
@@ -493,7 +476,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		uint256 _assets,
 		address _receiver
 	) internal returns (uint256 received) {
-        // TODO: return (received, loss)
+		// TODO: return (received, loss)
 		received = _strategy.withdraw(_assets, _receiver);
 
 		uint256 debt = strategies[_strategy].debt;
@@ -506,7 +489,6 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
 	function _report(Strategy _strategy) internal {
 		uint256 assets = _strategy.totalAssets();
-        // TODO: load strategy to memory to save gas
 		uint256 debt = strategies[_strategy].debt;
 
 		strategies[_strategy].debt = assets; // update debt
@@ -551,7 +533,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		strategies[_strategy].debtRatio = _newDebtRatio;
 		totalDebtRatio = newTotalDebtRatio;
 
-		emit StrategyDebtRatioChanged(_strategy, _newDebtRatio, msg.sender);
+		emit StrategyDebtRatioChanged(_strategy, _newDebtRatio);
 	}
 
 	/*/////////////////////

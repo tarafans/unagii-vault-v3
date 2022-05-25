@@ -9,7 +9,7 @@ import 'src/strategies/UsdcStrategyVader.sol';
 import 'src/swaps/UsdcSwap.sol';
 import '../TestHelpers.sol';
 
-contract UsdcVaultTest is TestHelpers {
+contract UsdcVaultTest is Test, TestHelpers {
 	Vault vault;
 	ISwap swap;
 	UsdcStrategyConvexPax s1;

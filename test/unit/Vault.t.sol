@@ -109,4 +109,26 @@ contract VaultTest is Test {
 		assertEq(vault.lockedProfit(), 0);
 		assertEq(vault.freeAssets(), amount);
 	}
+
+	function testLockedProfitZero(uint256 amount) public {
+		vm.assume(amount > 0 && amount < type(uint240).max);
+
+		Strategy s1 = new MockStrategy(vault);
+		vault.addStrategy(s1, 100);
+
+		vault.setLockedProfitDuration(0);
+
+		token.mint(address(s1), amount);
+		vault.report(s1);
+
+		assertEq(vault.lockedProfit(), 0);
+		assertEq(vault.freeAssets(), amount);
+		assertEq(vault.totalAssets(), amount);
+	}
+
+	function testAddStrategy() public {
+		Strategy s1 = new MockStrategy(vault);
+		vault.addStrategy(s1, 100);
+		vault.removeStrategy(s1, 0);
+	}
 }
