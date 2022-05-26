@@ -43,9 +43,6 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	uint256 public totalDebtRatio;
 	uint256 internal constant MAX_TOTAL_DEBT_RATIO = 1_000;
 
-	/// @dev used to normalize share calculations to 18 decimals
-	uint256 internal immutable OFFSET;
-
 	/*//////////////////
 	/      Events      /
 	//////////////////*/
@@ -89,7 +86,6 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		BlockDelay(_blockDelay)
 	{
 		asset = _asset;
-		OFFSET = 10**(18 - _asset.decimals());
 	}
 
 	/*///////////////////////
@@ -242,7 +238,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	) public whenNotPaused returns (uint256 assets) {
 		if ((assets = previewRedeem(_shares)) == 0) revert Zero();
 
-		_withdraw(assets, _shares, _owner, _receiver);
+		return _withdraw(assets, _shares, _owner, _receiver);
 	}
 
 	/*///////////////////////////////////////////
@@ -272,7 +268,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		totalDebtRatio -= strategies[_strategy].debtRatio;
 
 		if (strategies[_strategy].debt > 0) {
-			uint256 received = _collect(_strategy, type(uint256).max, address(this));
+			(uint256 received, ) = _collect(_strategy, type(uint256).max, address(this));
 			if (received < _minReceived) revert BelowMinimum(received);
 		}
 
@@ -375,8 +371,6 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		_report(_strategy);
 	}
 
-	// TODO: function to withdraw from strategy (onlyAuthorized)
-
 	/*///////////////////////////////////////////
 	/      Internal Override: useBlockDelay     /
 	///////////////////////////////////////////*/
@@ -431,7 +425,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		uint256 _shares,
 		address _owner,
 		address _receiver
-	) internal {
+	) internal returns (uint256 received) {
 		if (msg.sender != _owner) {
 			uint256 allowed = allowance[_owner][msg.sender];
 			if (allowed != type(uint256).max) allowance[_owner][msg.sender] = allowed - _shares;
@@ -447,15 +441,16 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 			uint256 amount = _assets > balance ? balance : _assets;
 			asset.safeTransfer(_receiver, amount);
 			_assets -= amount;
+			received += amount;
 		}
 
 		// next, withdraw from strategies
 		uint8 length = uint8(_queue.length);
 		for (uint8 i = 0; i < length; ++i) {
 			if (_assets == 0) break;
-			// TODO: return (received, loss) and penalize slippage, deduct loss from _assets
-			uint256 received = _collect(_queue[i], _assets, _receiver);
-			_assets -= received;
+			(uint256 receivedFromStrategy, uint256 slippage) = _collect(_queue[i], _assets, _receiver);
+			_assets -= receivedFromStrategy + slippage; // user pays for slippage, if any
+			received += receivedFromStrategy;
 		}
 	}
 
@@ -475,9 +470,9 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		Strategy _strategy,
 		uint256 _assets,
 		address _receiver
-	) internal returns (uint256 received) {
+	) internal returns (uint256 received, uint256 slippage) {
 		// TODO: return (received, loss)
-		received = _strategy.withdraw(_assets, _receiver);
+		(received, slippage) = _strategy.withdraw(_assets, _receiver);
 
 		uint256 debt = strategies[_strategy].debt;
 

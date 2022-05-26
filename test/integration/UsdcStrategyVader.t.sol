@@ -9,7 +9,7 @@ import 'src/Vault.sol';
 import 'src/strategies/UsdcStrategyVader.sol';
 import '../TestHelpers.sol';
 
-contract UsdcStrategyConvexPaxTest is Test, TestHelpers {
+contract UsdcStrategyVaderTest is Test, TestHelpers {
 	Vault vault;
 	Strategy strategy;
 

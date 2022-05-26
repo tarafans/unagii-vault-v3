@@ -126,9 +126,21 @@ contract VaultTest is Test {
 		assertEq(vault.totalAssets(), amount);
 	}
 
-	function testAddStrategy() public {
+	function testRemoveStrategy(uint256 amount) public {
+		vm.assume(amount > 0 && amount < type(uint240).max);
+
 		Strategy s1 = new MockStrategy(vault);
 		vault.addStrategy(s1, 100);
+
+		token.mint(address(vault), amount);
+		vault.report(s1);
+
 		vault.removeStrategy(s1, 0);
+
+		assertEq(vault.queue().length, 0);
+		assertEq(vault.totalAssets(), amount);
+
+		(bool added, , ) = vault.strategies(s1);
+		assertFalse(added);
 	}
 }
