@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-// TODO: Don't use latest version, might need to lower version
 pragma solidity 0.8.9;
 
 import 'solmate/tokens/ERC20.sol';
