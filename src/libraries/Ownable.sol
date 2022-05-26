@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // TODO: lock compiler version
-pragma solidity ^0.8.13;
+pragma solidity 0.8.9;
 
 abstract contract Ownable {
 	address public owner;

@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
-// TODO: lock compiler version
-pragma solidity >=0.8.10;
+pragma solidity 0.8.9;
 
 abstract contract BlockDelay {
 	/// @notice delay before functions with 'useBlockDelay' can be called by the same address

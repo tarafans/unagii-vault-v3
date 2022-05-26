@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity ^0.8.13;
+pragma solidity 0.8.9;
 
 import 'solmate/tokens/ERC20.sol';
 import 'solmate/utils/SafeTransferLib.sol';
@@ -53,8 +53,8 @@ contract UsdcSwap is ISwap, Ownable {
 	/      Public Functions      /
   ////////////////////////////*/
 
-    // TODO: if there are refunds from trade, user can claim the excess
-    // Either restrict this function to onlyAuthorized or make sure there are no refunds on any trade
+	// TODO: if there are refunds from trade, user can claim the excess
+	// Either restrict this function to onlyAuthorized or make sure there are no refunds on any trade
 	function swapTokens(
 		address _tokenIn,
 		address _tokenOut,

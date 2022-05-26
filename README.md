@@ -22,3 +22,5 @@ cp .env.sample .env # and fill in RPC_URL
 make test # run all tests (unit & integration)
 make unit # run only vault unit tests
 ```
+
+Pass extra arguments to tests with `ARGS='...'`, e.g. `make test ARGS='match-path test/integration/UsdcVault.t.sol'` to only test that file.
