@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity 0.8.9;
 
 import 'forge-std/Test.sol';
 import 'solmate/utils/FixedPointMathLib.sol';
@@ -108,5 +108,39 @@ contract VaultTest is Test {
 
 		assertEq(vault.lockedProfit(), 0);
 		assertEq(vault.freeAssets(), amount);
+	}
+
+	function testLockedProfitZero(uint256 amount) public {
+		vm.assume(amount > 0 && amount < type(uint240).max);
+
+		Strategy s1 = new MockStrategy(vault);
+		vault.addStrategy(s1, 100);
+
+		vault.setLockedProfitDuration(0);
+
+		token.mint(address(s1), amount);
+		vault.report(s1);
+
+		assertEq(vault.lockedProfit(), 0);
+		assertEq(vault.freeAssets(), amount);
+		assertEq(vault.totalAssets(), amount);
+	}
+
+	function testRemoveStrategy(uint256 amount) public {
+		vm.assume(amount > 0 && amount < type(uint240).max);
+
+		Strategy s1 = new MockStrategy(vault);
+		vault.addStrategy(s1, 100);
+
+		token.mint(address(vault), amount);
+		vault.report(s1);
+
+		vault.removeStrategy(s1, 0);
+
+		assertEq(vault.queue().length, 0);
+		assertEq(vault.totalAssets(), amount);
+
+		(bool added, , ) = vault.strategies(s1);
+		assertFalse(added);
 	}
 }

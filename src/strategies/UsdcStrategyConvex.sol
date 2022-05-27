@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity ^0.8.13;
+pragma solidity 0.8.9;
 
 import 'solmate/tokens/ERC20.sol';
 import 'solmate/utils/SafeTransferLib.sol';
@@ -27,8 +27,8 @@ contract UsdcStrategyConvex is Strategy {
 	ERC20[2] public rewards = [CRV, CVX];
 	bool public shouldClaimExtras = true;
 
-	IDepositZap constant zap = IDepositZap(0xA79828DF1850E8a3A3064576f380D90aECDD3359);
-	IBooster constant booster = IBooster(0xF403C135812408BFbE8713b5A23a04b3D48AAE31);
+	IDepositZap private constant zap = IDepositZap(0xA79828DF1850E8a3A3064576f380D90aECDD3359);
+	IBooster private constant booster = IBooster(0xF403C135812408BFbE8713b5A23a04b3D48AAE31);
 
 	ERC20 internal constant CRV = ERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
 	ERC20 internal constant CVX = ERC20(0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B);
@@ -109,14 +109,18 @@ contract UsdcStrategyConvex is Strategy {
 
 		uint256 amount = _assets > assets ? assets : _assets;
 
-        // TODO: 
-        // bal = asset.balanceOf(address(this))
-        // amount to withdraw = amount - bal
-        // tokenAmount = amount to withdraw * reward.balanceOf(address(this)) / (totalAssets - bal)
 		uint256 tokenAmount = (amount * reward.balanceOf(address(this))) / totalAssets();
 
 		if (!reward.withdrawAndUnwrap(tokenAmount, true)) revert WithdrawAndUnwrapFailed();
-		received = zap.remove_liquidity_one_coin(address(pool), tokenAmount, INDEX_OF_ASSET, 0, _receiver);
+
+		return
+			zap.remove_liquidity_one_coin(
+				address(pool),
+				tokenAmount,
+				INDEX_OF_ASSET,
+				_calculateSlippage(amount),
+				_receiver
+			);
 	}
 
 	function _harvest() internal override {
@@ -138,8 +142,6 @@ contract UsdcStrategyConvex is Strategy {
 			swap.swapTokens(address(rewardToken), address(asset), rewardBalance, 1);
 		}
 
-		// TODO: check if _investing costs less gas here
-        // TODO: does direct transfer to vault mess up debt calculations?
 		asset.safeTransfer(address(vault), asset.balanceOf(address(this)));
 	}
 
@@ -147,7 +149,9 @@ contract UsdcStrategyConvex is Strategy {
 		uint256 assetBalance = asset.balanceOf(address(this));
 		if (assetBalance == 0) revert NothingToInvest();
 
-		uint256 received = zap.add_liquidity(address(pool), [0, 0, assetBalance, 0], 0);
+		uint256 min = _calculateSlippage((assetBalance * DECIMAL_OFFSET * 1e18) / pool.get_virtual_price());
+
+		uint256 received = zap.add_liquidity(address(pool), [0, 0, assetBalance, 0], min);
 
 		if (!booster.deposit(pid, received, true)) revert DepositFailed();
 	}

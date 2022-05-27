@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.10;
+pragma solidity 0.8.9;
 
 // https://docs.convexfinance.com/convexfinanceintegration/baserewardpool
 // https://github.com/convex-eth/platform/blob/main/contracts/contracts/BaseRewardPool.sol

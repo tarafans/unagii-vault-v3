@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.10;
+pragma solidity 0.8.9;
 
 // https://github.com/vetherasset/staking-rewards/blob/main/src/IStakingRewards.sol
 

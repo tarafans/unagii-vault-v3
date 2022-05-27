@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.0;
+pragma solidity 0.8.9;
 
 // https://etherscan.io/address/0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f
 // it's actually an UniswapV2Router02 but renamed for clarity vs actual uniswap

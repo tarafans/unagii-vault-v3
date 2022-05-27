@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity ^0.8.13;
+pragma solidity 0.8.9;
 
 import './Vault.sol';
 
@@ -17,17 +17,15 @@ abstract contract Strategy is Ownership {
 
 	/// @notice address which performance fees are sent to
 	address public treasury;
-	/// @dev performance fee sent to treasury
-    // TODO: gas might be cheaper (when fee is calculated) using uint256
+	/// @notice performance fee sent to treasury / FEE_BASIS of 10_000
 	uint16 public fee = 1_000;
-	uint16 public constant MAX_FEE = 1_000;
+	uint16 internal constant MAX_FEE = 1_000;
 	uint16 internal constant FEE_BASIS = 10_000;
 
-	/// @notice used to calculate slippage with SLIP_BASIS
+	/// @notice used to calculate slippage / SLIP_BASIS of 10_000
 	/// @dev default to 99% (or 1%)
-    // TODO: gas might be cheaper (when slip is calculated) using uint256
-	uint16 public slip = 990;
-	uint16 internal constant SLIP_BASIS = 1_000;
+	uint16 public slip = 9_900;
+	uint16 internal constant SLIP_BASIS = 10_000;
 
 	/*//////////////////
 	/      Errors      /
@@ -59,16 +57,24 @@ abstract contract Strategy is Ownership {
 	/      Restricted Functions: onlyVault      /
 	///////////////////////////////////////////*/
 
-    // TODO: slippage protection on withdraw or slippage protection inside vault contract?
-	function withdraw(uint256 _assets, address _receiver) external onlyVault returns (uint256 received) {
-		return _withdraw(_assets, _receiver);
+	function withdraw(uint256 _assets, address _receiver)
+		external
+		onlyVault
+		returns (uint256 received, uint256 slippage)
+	{
+		received = _withdraw(_assets, _receiver);
+		received = received > _assets ? _assets : received; // received cannot > _assets for vault calculations
+
+		if (received >= _assets) return (received, 0);
+		unchecked {
+			slippage = _assets - received;
+		}
 	}
 
 	function harvest() external onlyVault {
 		_harvest();
 	}
 
-    // TODO: slippage protection? min shares or maybe min deposited?
 	function invest() external onlyVault {
 		_invest();
 	}
@@ -98,7 +104,6 @@ abstract contract Strategy is Ownership {
 	////////////////////////////*/
 
 	/// @dev this must handle overflow, i.e. vault trying to withdraw more than what strategy has
-    // TODO: maybe return loss on withdraw too? loss = debt - total asset after withdraw 
 	function _withdraw(uint256 _assets, address _receiver) internal virtual returns (uint256 received);
 
 	function _harvest() internal virtual;

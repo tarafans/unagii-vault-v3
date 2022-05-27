@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity 0.8.9;
 
 import 'forge-std/Test.sol';
 import 'solmate/tokens/ERC20.sol';
@@ -9,7 +9,7 @@ import 'src/Vault.sol';
 import 'src/strategies/UsdcStrategyVader.sol';
 import '../TestHelpers.sol';
 
-contract UsdcStrategyConvexPaxTest is Test, TestHelpers {
+contract UsdcStrategyVaderTest is Test, TestHelpers {
 	Vault vault;
 	Strategy strategy;
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity 0.8.9;
 
 import 'forge-std/Test.sol';
 import 'src/Vault.sol';
@@ -9,7 +9,7 @@ import 'src/strategies/UsdcStrategyVader.sol';
 import 'src/swaps/UsdcSwap.sol';
 import '../TestHelpers.sol';
 
-contract UsdcVaultTest is TestHelpers {
+contract UsdcVaultTest is Test, TestHelpers {
 	Vault vault;
 	ISwap swap;
 	UsdcStrategyConvexPax s1;
@@ -19,8 +19,12 @@ contract UsdcVaultTest is TestHelpers {
 	address constant treasury = address(0xAAAF);
 
 	USDC constant usdc = USDC(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-	address constant usdcWhale = 0x55FE002aefF02F77364de339a1292923A15844B8; // Circle
-	uint256 usdcWhaleBalance;
+	address constant usdcWhale = 0x55FE002aefF02F77364de339a1292923A15844B8;
+
+	// 1 USDC
+	uint256 internal constant lowerLimit = 1e6;
+	// 100 million USDC. beyond this amount tests start to fail due to precision loss (USDC value falling in 3pool)
+	uint256 internal constant upperLimit = 1e14;
 
 	IVaderMinter constant vaderMinter = IVaderMinter(0x00aadC47d91fD9CaC3369E6045042f9F99216B98);
 	address constant vaderMinterOwner = 0xFd9aD7F8B72fC133543Cb7cCC2F11C03b81726f9;
@@ -34,8 +38,7 @@ contract UsdcVaultTest is TestHelpers {
 		vault.addStrategy(s1, 200);
 		vault.addStrategy(s2, 100);
 
-		usdcWhaleBalance = usdc.balanceOf(usdcWhale);
-
+		// add strategy as whitelisted minter with no limits and no lock duration
 		vm.prank(vaderMinterOwner);
 		vaderMinter.whitelistPartner(address(s2), 0, type(uint256).max, type(uint256).max, 0);
 	}
@@ -58,7 +61,7 @@ contract UsdcVaultTest is TestHelpers {
 	}
 
 	function testDepositAndInvest(uint256 amount) public {
-		vm.assume(amount >= 1e6 && amount <= usdcWhaleBalance);
+		vm.assume(amount >= lowerLimit && amount <= upperLimit);
 
 		depositUsdc(u1, amount, u1);
 

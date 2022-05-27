@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity 0.8.9;
 
 import 'forge-std/Test.sol';
 import 'solmate/tokens/ERC20.sol';
@@ -18,8 +18,12 @@ contract UsdcStrategyConvexPaxTest is Test, TestHelpers {
 	address constant treasury = address(0xAAAF);
 
 	USDC constant usdc = USDC(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-	address constant usdcWhale = 0x55FE002aefF02F77364de339a1292923A15844B8; // Circle
-	uint256 usdcWhaleBalance;
+	address constant usdcWhale = 0x55FE002aefF02F77364de339a1292923A15844B8;
+
+	// 1 USDC
+	uint256 internal constant lowerLimit = 1e6;
+	// 100 million USDC. beyond this amount tests start to fail due to precision loss (USDC value falling in 3pool)
+	uint256 internal constant upperLimit = 1e14;
 
 	ERC20 constant CRV = ERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
 	ERC20 constant CVX = ERC20(0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B);
@@ -29,8 +33,6 @@ contract UsdcStrategyConvexPaxTest is Test, TestHelpers {
 		swap = new UsdcSwap();
 		strategy = new UsdcStrategyConvexPax(vault, treasury, new address[](0), swap);
 		vault.addStrategy(strategy, 100);
-
-		usdcWhaleBalance = usdc.balanceOf(usdcWhale);
 	}
 
 	/*///////////////////
@@ -55,18 +57,18 @@ contract UsdcStrategyConvexPaxTest is Test, TestHelpers {
 	/////////////////*/
 
 	function testDepositAndInvest(uint256 amount) public {
-		vm.assume(amount >= 1e6 && amount <= usdcWhaleBalance);
+		vm.assume(amount >= lowerLimit && amount <= upperLimit);
 
 		depositUsdc(u1, amount, u1);
 
 		assertEq(vault.totalAssets(), amount);
 
 		vault.report(strategy);
-		assertCloseTo(strategy.totalAssets(), amount, 30); // 3%
+		assertCloseTo(strategy.totalAssets(), amount, 10); // 1%
 	}
 
 	function testWithdraw(uint256 amount) public {
-		vm.assume(amount >= 1e6 && amount <= usdcWhaleBalance);
+		vm.assume(amount >= lowerLimit && amount <= upperLimit);
 
 		depositUsdc(u1, amount, u1);
 
@@ -79,7 +81,7 @@ contract UsdcStrategyConvexPaxTest is Test, TestHelpers {
 	}
 
 	function testHarvest(uint256 amount) public {
-		vm.assume(amount >= 1e6 && amount <= usdcWhaleBalance);
+		vm.assume(amount >= lowerLimit && amount <= upperLimit);
 
 		depositUsdc(u1, amount, u1);
 
