@@ -94,7 +94,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
 	/*///////////////////////
 	/      Public View      /
-  ///////////////////////*/
+	///////////////////////*/
 
 	function queue() external view returns (Strategy[] memory) {
 		return _queue;

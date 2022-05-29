@@ -6,28 +6,28 @@ import 'solmate/utils/SafeTransferLib.sol';
 
 import '../external/convex/IBaseRewardPool.sol';
 import '../external/convex/IBooster.sol';
-import '../external/curve/IDepositZap.sol';
-import '../external/curve/IMetaPool.sol';
+import '../external/curve/IFactoryDepositZap.sol';
+import '../external/curve/IFactoryMetaPool.sol';
 import '../interfaces/ISwap.sol';
 import '../libraries/Ownership.sol';
 import '../Strategy.sol';
 
 contract UsdcStrategyConvex is Strategy {
 	using SafeTransferLib for ERC20;
-	using SafeTransferLib for IMetaPool;
+	using SafeTransferLib for IFactoryMetaPool;
 
 	/// @notice contract used to swap CRV/CVX rewards to USDC
 	ISwap public swap;
 
 	uint8 immutable pid;
-	IMetaPool immutable pool;
+	IFactoryMetaPool immutable pool;
 	IBaseRewardPool immutable reward;
 
 	/// @dev child contracts should override this if there are more rewards
 	ERC20[2] public rewards = [CRV, CVX];
 	bool public shouldClaimExtras = true;
 
-	IDepositZap private constant zap = IDepositZap(0xA79828DF1850E8a3A3064576f380D90aECDD3359);
+	IFactoryDepositZap private constant zap = IFactoryDepositZap(0xA79828DF1850E8a3A3064576f380D90aECDD3359);
 	IBooster private constant booster = IBooster(0xF403C135812408BFbE8713b5A23a04b3D48AAE31);
 
 	ERC20 internal constant CRV = ERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
@@ -61,7 +61,7 @@ contract UsdcStrategyConvex is Strategy {
 	) Strategy(_vault, _treasury, _authorized) {
 		(address lpToken, , , address crvRewards, , ) = booster.poolInfo(_pid);
 
-		pool = IMetaPool(lpToken);
+		pool = IFactoryMetaPool(lpToken);
 		reward = IBaseRewardPool(crvRewards);
 		pid = _pid;
 		swap = _swap;
@@ -71,7 +71,7 @@ contract UsdcStrategyConvex is Strategy {
 
 	/*///////////////////////
 	/      Public View      /
-  ///////////////////////*/
+	///////////////////////*/
 
 	function totalAssets() public view override returns (uint256 assets) {
 		assets += asset.balanceOf(address(this));

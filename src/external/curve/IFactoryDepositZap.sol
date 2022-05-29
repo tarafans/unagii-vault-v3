@@ -2,9 +2,9 @@
 pragma solidity 0.8.9;
 
 // https://curve.readthedocs.io/factory-deposits.html
-// deposit zap for curve metapools
+// deposit zap for curve factory metapools
 
-interface IDepositZap {
+interface IFactoryDepositZap {
 	function calc_withdraw_one_coin(
 		address pool,
 		uint256 amount,

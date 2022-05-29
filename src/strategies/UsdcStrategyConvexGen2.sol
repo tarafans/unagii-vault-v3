@@ -12,7 +12,7 @@ import '../interfaces/ISwap.sol';
 import '../libraries/Ownership.sol';
 import '../Strategy.sol';
 
-// strategy for older curve pools that don't use metapool factory and deposit zap
+// strategy for older pre-factory curve metapools
 contract UsdcStrategyConvexGen2 is Strategy {
 	using SafeTransferLib for ERC20;
 
@@ -75,7 +75,7 @@ contract UsdcStrategyConvexGen2 is Strategy {
 
 	/*///////////////////////
 	/      Public View      /
-  ///////////////////////*/
+	///////////////////////*/
 
 	function totalAssets() public view override returns (uint256 assets) {
 		assets += asset.balanceOf(address(this));
