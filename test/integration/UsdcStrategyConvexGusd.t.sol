@@ -21,8 +21,8 @@ contract UsdcStrategyConvexGusdTest is Test, TestHelpers {
 
 	// 1 USDC
 	uint256 internal constant lowerLimit = 1e6;
-	// 100 million USDC. beyond this amount tests start to fail due to precision loss (USDC value falling in 3pool)
-	uint256 internal constant upperLimit = 1e14;
+	// 80 million USDC. beyond this amount tests start to fail due to precision loss (USDC value falling in 3pool)
+	uint256 internal constant upperLimit = 8e13;
 
 	ERC20 constant CRV = ERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
 	ERC20 constant CVX = ERC20(0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B);

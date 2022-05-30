@@ -61,7 +61,7 @@ contract UsdcStrategyConvex is Strategy {
 		pid = _pid;
 		swap = _swap;
 
-		// _approve();
+		_approve();
 	}
 
 	/*///////////////////////
