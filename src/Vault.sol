@@ -112,7 +112,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 			// won't overflow since time is nowhere near uint256.max
 			if (block.timestamp >= last + duration) return 0;
 			// can overflow if _lockedProfit * difference > uint256.max but in practice should never happen
-			return _lockedProfit - ((_lockedProfit * (block.timestamp - last)) / duration);
+			return _lockedProfit - _lockedProfit.mulDivDown(block.timestamp - last, duration);
 		}
 	}
 
@@ -519,7 +519,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
 		uint256 possibleDebt = totalDebtRatio == 0
 			? 0
-			: (totalAssets() * strategies[_strategy].debtRatio) / totalDebtRatio;
+			: totalAssets().mulDivDown(strategies[_strategy].debtRatio, totalDebtRatio);
 
 		if (possibleDebt > assets) _lend(_strategy, possibleDebt - assets);
 		else if (assets > possibleDebt) _collect(_strategy, assets - possibleDebt, address(this));

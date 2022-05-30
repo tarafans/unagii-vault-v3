@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.9;
 
-import 'solmate/tokens/ERC20.sol';
-import 'solmate/utils/SafeTransferLib.sol';
-
 import '../external/convex/IBaseRewardPool.sol';
 import '../external/convex/IBooster.sol';
 import '../external/curve/IGen2DepositZap.sol';
@@ -15,6 +12,7 @@ import '../Strategy.sol';
 // strategy for older pre-factory curve metapools
 contract UsdcStrategyConvexGen2 is Strategy {
 	using SafeTransferLib for ERC20;
+	using FixedPointMathLib for uint256;
 
 	/// @notice contract used to swap CRV/CVX rewards to USDC
 	ISwap public swap;
@@ -34,8 +32,10 @@ contract UsdcStrategyConvexGen2 is Strategy {
 	ERC20 internal constant CRV = ERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
 	ERC20 internal constant CVX = ERC20(0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B);
 
-	int128 internal constant INDEX_OF_ASSET = 2; // index of USDC in metapool
-	uint256 internal constant DECIMAL_OFFSET = 1e12; // normalize USDC to 18 decimals
+	/// @dev index of USDC in metapool
+	int128 internal constant INDEX_OF_ASSET = 2;
+	/// @dev normalize USDC to 18 decimals + offset pool.get_virtual_price()'s 18 decimals
+	uint256 internal constant NORMALIZED_DECIMAL_OFFSET = 1e30;
 
 	/*///////////////
 	/     Events    /
@@ -78,10 +78,9 @@ contract UsdcStrategyConvexGen2 is Strategy {
 	///////////////////////*/
 
 	function totalAssets() public view override returns (uint256 assets) {
-		assets += asset.balanceOf(address(this));
 		uint256 rewardBalance = reward.balanceOf(address(this));
 		if (rewardBalance == 0) return assets;
-		assets += (rewardBalance * pool.base_virtual_price()) / (1e18 * DECIMAL_OFFSET);
+		assets += rewardBalance.mulDivDown(pool.base_virtual_price(), NORMALIZED_DECIMAL_OFFSET);
 	}
 
 	/*///////////////////////////////////////////
@@ -124,7 +123,8 @@ contract UsdcStrategyConvexGen2 is Strategy {
 	function _harvest() internal override {
 		if (!reward.getReward(address(this), shouldClaimExtras)) revert ClaimRewardsFailed();
 
-		for (uint8 i = 0; i < rewards.length; ++i) {
+		uint8 length = uint8(rewards.length);
+		for (uint8 i = 0; i < length; ++i) {
 			ERC20 rewardToken = rewards[i];
 			uint256 rewardBalance = rewardToken.balanceOf(address(this));
 
@@ -132,7 +132,7 @@ contract UsdcStrategyConvexGen2 is Strategy {
 
 			// send rewards to treasury
 			if (fee > 0) {
-				uint256 feeAmount = (rewardBalance * fee) / FEE_BASIS;
+				uint256 feeAmount = _calculateFee(rewardBalance);
 				rewardToken.safeTransfer(treasury, feeAmount);
 				rewardBalance -= feeAmount;
 			}
@@ -147,7 +147,7 @@ contract UsdcStrategyConvexGen2 is Strategy {
 		uint256 assetBalance = asset.balanceOf(address(this));
 		if (assetBalance == 0) revert NothingToInvest();
 
-		uint256 min = _calculateSlippage((assetBalance * DECIMAL_OFFSET * 1e18) / pool.base_virtual_price());
+		uint256 min = _calculateSlippage(assetBalance.mulDivDown(NORMALIZED_DECIMAL_OFFSET, pool.base_virtual_price()));
 
 		uint256 received = zap.add_liquidity([0, 0, assetBalance, 0], min);
 
@@ -167,7 +167,8 @@ contract UsdcStrategyConvexGen2 is Strategy {
 		poolToken.safeApprove(address(zap), type(uint256).max);
 
 		// approve swap rewards to USDC
-		for (uint8 i = 0; i < rewards.length; ++i) {
+		uint8 length = uint8(rewards.length);
+		for (uint8 i = 0; i < length; ++i) {
 			rewards[i].safeApprove(address(swap), type(uint256).max);
 		}
 	}
@@ -178,7 +179,8 @@ contract UsdcStrategyConvexGen2 is Strategy {
 		poolToken.safeApprove(address(zap), 0);
 
 		// approve swap rewards to USDC
-		for (uint8 i = 0; i < rewards.length; ++i) {
+		uint8 length = uint8(rewards.length);
+		for (uint8 i = 0; i < length; ++i) {
 			rewards[i].safeApprove(address(swap), 0);
 		}
 	}

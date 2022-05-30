@@ -12,6 +12,8 @@ import './Vault.sol';
  * _invest()
  */
 abstract contract Strategy is Ownership {
+	using FixedPointMathLib for uint256;
+
 	Vault public immutable vault;
 	ERC20 public immutable asset;
 
@@ -115,7 +117,11 @@ abstract contract Strategy is Ownership {
 	//////////////////////////////*/
 
 	function _calculateSlippage(uint256 _amount) internal view returns (uint256) {
-		return (_amount * slip) / SLIP_BASIS;
+		return _amount.mulDivDown(slip, SLIP_BASIS);
+	}
+
+	function _calculateFee(uint256 _amount) internal view returns (uint256) {
+		return _amount.mulDivDown(fee, FEE_BASIS);
 	}
 
 	modifier onlyVault() {
