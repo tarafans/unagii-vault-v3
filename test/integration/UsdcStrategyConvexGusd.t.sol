@@ -3,7 +3,6 @@ pragma solidity 0.8.9;
 
 import 'forge-std/Test.sol';
 import 'solmate/tokens/ERC20.sol';
-import 'src/external/usdc/USDC.sol';
 import 'src/Vault.sol';
 import 'src/strategies/UsdcStrategyConvexGusd.sol';
 import 'src/swaps/UsdcSwap.sol';
@@ -17,7 +16,7 @@ contract UsdcStrategyConvexGusdTest is Test, TestHelpers {
 	address constant u1 = address(0xABCD);
 	address constant treasury = address(0xAAAF);
 
-	USDC constant usdc = USDC(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+	ERC20 constant USDC = ERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
 	address constant usdcWhale = 0x55FE002aefF02F77364de339a1292923A15844B8;
 
 	// 1 USDC
@@ -29,7 +28,7 @@ contract UsdcStrategyConvexGusdTest is Test, TestHelpers {
 	ERC20 constant CVX = ERC20(0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B);
 
 	function setUp() public {
-		vault = new Vault(usdc, new address[](0), 0);
+		vault = new Vault(USDC, new address[](0), 0);
 		swap = new UsdcSwap();
 		strategy = new UsdcStrategyConvexGusd(vault, treasury, new address[](0), swap);
 		vault.addStrategy(strategy, 100);
@@ -45,9 +44,9 @@ contract UsdcStrategyConvexGusdTest is Test, TestHelpers {
 		address receiver
 	) public {
 		vm.prank(usdcWhale);
-		usdc.transfer(from, amount);
+		USDC.transfer(from, amount);
 		vm.startPrank(from);
-		usdc.approve(address(vault), type(uint256).max);
+		USDC.approve(address(vault), type(uint256).max);
 		vault.deposit(amount, receiver);
 		vm.stopPrank();
 	}
@@ -77,7 +76,7 @@ contract UsdcStrategyConvexGusdTest is Test, TestHelpers {
 		vm.startPrank(u1);
 		vault.redeem(vault.balanceOf(u1), u1, u1);
 
-		assertCloseTo(usdc.balanceOf(u1), amount, 1); // 0.1%
+		assertCloseTo(USDC.balanceOf(u1), amount, 1); // 0.1%
 	}
 
 	function testHarvest(uint256 amount) public {

@@ -6,7 +6,6 @@ import '../external/convex/IBooster.sol';
 import '../external/curve/IGen2DepositZap.sol';
 import '../external/curve/IGen2MetaPool.sol';
 import '../interfaces/ISwap.sol';
-import '../libraries/Ownership.sol';
 import '../Strategy.sol';
 
 // strategy for older pre-factory curve metapools
