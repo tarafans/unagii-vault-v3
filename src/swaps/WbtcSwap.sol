@@ -31,6 +31,7 @@ contract WbtcSwap is ISwap, Ownable {
 
 	address internal constant CRV = 0xD533a949740bb3306d119CC777fa900bA034cd52;
 	address internal constant CVX = 0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B;
+	address internal constant PNT = 0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD;
 	address internal constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 	address internal constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
 
@@ -43,6 +44,7 @@ contract WbtcSwap is ISwap, Ownable {
 	constructor() Ownable() {
 		routes[CRV] = Route.UniswapV2; // TODO: sushiswap is better
 		routes[CVX] = Route.UniswapV3Path;
+		routes[PNT] = Route.UniswapV2;
 	}
 
 	/*////////////////////////////
