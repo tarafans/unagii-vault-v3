@@ -5,7 +5,7 @@ pragma solidity 0.8.9;
 
 import 'solmate/tokens/ERC20.sol';
 
-abstract contract IMetaPool is ERC20 {
+abstract contract IFactoryMetaPool is ERC20 {
 	function exchange(
 		int128,
 		int128,

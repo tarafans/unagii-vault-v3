@@ -3,29 +3,30 @@ pragma solidity 0.8.9;
 
 import '../external/convex/IBaseRewardPool.sol';
 import '../external/convex/IBooster.sol';
-import '../external/curve/IFactoryDepositZap.sol';
-import '../external/curve/IFactoryMetaPool.sol';
+import '../external/curve/IGen2DepositZap.sol';
+import '../external/curve/IGen2MetaPool.sol';
 import '../interfaces/ISwap.sol';
 import '../libraries/Ownership.sol';
 import '../Strategy.sol';
 
-contract UsdcStrategyConvex is Strategy {
+// strategy for older pre-factory curve metapools
+contract UsdcStrategyConvexGen2 is Strategy {
 	using SafeTransferLib for ERC20;
-	using SafeTransferLib for IFactoryMetaPool;
 	using FixedPointMathLib for uint256;
 
 	/// @notice contract used to swap CRV/CVX rewards to USDC
 	ISwap public swap;
 
 	uint8 immutable pid;
-	IFactoryMetaPool immutable pool;
+	IGen2MetaPool immutable pool;
+	ERC20 immutable poolToken;
 	IBaseRewardPool immutable reward;
+	IGen2DepositZap immutable zap;
 
 	/// @dev child contracts should override this if there are more rewards
 	ERC20[2] public rewards = [CRV, CVX];
 	bool public shouldClaimExtras = true;
 
-	IFactoryDepositZap private constant zap = IFactoryDepositZap(0xA79828DF1850E8a3A3064576f380D90aECDD3359);
 	IBooster private constant booster = IBooster(0xF403C135812408BFbE8713b5A23a04b3D48AAE31);
 
 	ERC20 internal constant CRV = ERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
@@ -35,6 +36,10 @@ contract UsdcStrategyConvex is Strategy {
 	int128 internal constant INDEX_OF_ASSET = 2;
 	/// @dev normalize USDC to 18 decimals + offset pool.get_virtual_price()'s 18 decimals
 	uint256 internal constant NORMALIZED_DECIMAL_OFFSET = 1e30;
+
+	/*///////////////
+	/     Events    /
+	///////////////*/
 
 	/*///////////////
 	/     Errors    /
@@ -52,13 +57,16 @@ contract UsdcStrategyConvex is Strategy {
 		Vault _vault,
 		address _treasury,
 		address[] memory _authorized,
+		IGen2DepositZap _zap,
 		uint8 _pid,
 		ISwap _swap
 	) Strategy(_vault, _treasury, _authorized) {
 		(address lpToken, , , address crvRewards, , ) = booster.poolInfo(_pid);
 
-		pool = IFactoryMetaPool(lpToken);
+		poolToken = ERC20(lpToken);
+		pool = IGen2MetaPool(_zap.pool());
 		reward = IBaseRewardPool(crvRewards);
+		zap = _zap;
 		pid = _pid;
 		swap = _swap;
 
@@ -72,7 +80,7 @@ contract UsdcStrategyConvex is Strategy {
 	function totalAssets() public view override returns (uint256 assets) {
 		uint256 rewardBalance = reward.balanceOf(address(this));
 		if (rewardBalance == 0) return assets;
-		assets += rewardBalance.mulDivDown(pool.get_virtual_price(), NORMALIZED_DECIMAL_OFFSET);
+		assets += rewardBalance.mulDivDown(pool.base_virtual_price(), NORMALIZED_DECIMAL_OFFSET);
 	}
 
 	/*///////////////////////////////////////////
@@ -104,18 +112,12 @@ contract UsdcStrategyConvex is Strategy {
 
 		uint256 amount = _assets > assets ? assets : _assets;
 
-		uint256 tokenAmount = amount.mulDivDown(reward.balanceOf(address(this)), assets);
+		uint256 tokenAmount = (amount * reward.balanceOf(address(this))) / totalAssets();
 
 		if (!reward.withdrawAndUnwrap(tokenAmount, true)) revert WithdrawAndUnwrapFailed();
 
-		return
-			zap.remove_liquidity_one_coin(
-				address(pool),
-				tokenAmount,
-				INDEX_OF_ASSET,
-				_calculateSlippage(amount),
-				_receiver
-			);
+		received = zap.remove_liquidity_one_coin(tokenAmount, INDEX_OF_ASSET, _calculateSlippage(amount));
+		asset.safeTransfer(_receiver, received);
 	}
 
 	function _harvest() internal override {
@@ -145,9 +147,9 @@ contract UsdcStrategyConvex is Strategy {
 		uint256 assetBalance = asset.balanceOf(address(this));
 		if (assetBalance == 0) revert NothingToInvest();
 
-		uint256 min = _calculateSlippage(assetBalance.mulDivDown(NORMALIZED_DECIMAL_OFFSET, pool.get_virtual_price()));
+		uint256 min = _calculateSlippage(assetBalance.mulDivDown(NORMALIZED_DECIMAL_OFFSET, pool.base_virtual_price()));
 
-		uint256 received = zap.add_liquidity(address(pool), [0, 0, assetBalance, 0], min);
+		uint256 received = zap.add_liquidity([0, 0, assetBalance, 0], min);
 
 		if (!booster.deposit(pid, received, true)) revert DepositFailed();
 	}
@@ -160,9 +162,9 @@ contract UsdcStrategyConvex is Strategy {
 		// approve deposit USDC into zap
 		asset.safeApprove(address(zap), type(uint256).max);
 		// approve deposit lpTokens into booster
-		pool.safeApprove(address(booster), type(uint256).max);
+		poolToken.safeApprove(address(booster), type(uint256).max);
 		// approve withdraw lpTokens
-		pool.safeApprove(address(zap), type(uint256).max);
+		poolToken.safeApprove(address(zap), type(uint256).max);
 
 		// approve swap rewards to USDC
 		uint8 length = uint8(rewards.length);
@@ -173,8 +175,8 @@ contract UsdcStrategyConvex is Strategy {
 
 	function _unapprove() internal {
 		asset.safeApprove(address(zap), 0);
-		pool.safeApprove(address(booster), 0);
-		pool.safeApprove(address(zap), 0);
+		poolToken.safeApprove(address(booster), 0);
+		poolToken.safeApprove(address(zap), 0);
 
 		// approve swap rewards to USDC
 		uint8 length = uint8(rewards.length);

@@ -3,18 +3,18 @@ pragma solidity 0.8.9;
 
 import 'solmate/tokens/ERC20.sol';
 import 'solmate/utils/SafeTransferLib.sol';
-import '../external/curve/IDepositZap.sol';
-import '../external/curve/IMetaPool.sol';
+import '../external/curve/IFactoryDepositZap.sol';
+import '../external/curve/IFactoryMetaPool.sol';
 import '../external/vader/IVaderMinter.sol';
 import '../external/vader/IStakingRewards.sol';
 import '../Strategy.sol';
 
 contract UsdcStrategyVader is Strategy {
 	using SafeTransferLib for ERC20;
-	using SafeTransferLib for IMetaPool;
+	using SafeTransferLib for IFactoryMetaPool;
 
-	IDepositZap private constant zap = IDepositZap(0xA79828DF1850E8a3A3064576f380D90aECDD3359);
-	IMetaPool private constant pool = IMetaPool(0x7abD51BbA7f9F6Ae87aC77e1eA1C5783adA56e5c);
+	IFactoryDepositZap private constant zap = IFactoryDepositZap(0xA79828DF1850E8a3A3064576f380D90aECDD3359);
+	IFactoryMetaPool private constant pool = IFactoryMetaPool(0x7abD51BbA7f9F6Ae87aC77e1eA1C5783adA56e5c);
 	IVaderMinter private constant minter = IVaderMinter(0x00aadC47d91fD9CaC3369E6045042f9F99216B98);
 	IStakingRewards private constant reward = IStakingRewards(0x2413e4594aadE7513AB6Dc43209D4C312cC35121);
 
@@ -34,7 +34,7 @@ contract UsdcStrategyVader is Strategy {
 
 	/*///////////////////////
 	/      Public View      /
-  ///////////////////////*/
+	///////////////////////*/
 
 	function totalAssets() public view override returns (uint256 assets) {
 		assets += asset.balanceOf(address(this));
