@@ -5,8 +5,6 @@ pragma solidity 0.8.9;
 // for pre-factory metapools, with one deposit zap per pool
 
 interface IGen2DepositZap {
-	function calc_withdraw_one_coin(uint256 amount, int128 i) external view returns (uint256);
-
 	function add_liquidity(uint256[4] memory _deposit_amounts, uint256 min_mint_amount) external returns (uint256);
 
 	function remove_liquidity_one_coin(

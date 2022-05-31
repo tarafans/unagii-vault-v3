@@ -7,8 +7,13 @@ import '../interfaces/ISwap.sol';
 import '../libraries/Ownable.sol';
 import '../external/uniswap/ISwapRouter02.sol';
 
-/// @notice Swap contract used by WBTC vault to swap rewards to WBTC
-contract WbtcSwap is ISwap, Ownable {
+/**
+ * @notice
+ * Swap contract used by WETH vault to:
+ * 1. swap rewards to WETH
+ * 2. wrap ETH into WETH
+ */
+contract WethSwap is ISwap, Ownable {
 	using SafeTransferLib for ERC20;
 
 	// TODO: also support Curve and SushiSwap?
@@ -24,11 +29,10 @@ contract WbtcSwap is ISwap, Ownable {
 
 	mapping(address => Route) public routes;
 
+	address internal constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 	address internal constant CRV = 0xD533a949740bb3306d119CC777fa900bA034cd52;
 	address internal constant CVX = 0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B;
-	address internal constant PNT = 0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD;
-	address internal constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-	address internal constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+	address internal constant LDO = 0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32;
 
 	/*//////////////////
 	/      Errors      /
@@ -37,9 +41,9 @@ contract WbtcSwap is ISwap, Ownable {
 	error UnsupportedToken(address);
 
 	constructor() Ownable() {
-		routes[CRV] = Route.UniswapV2; // TODO: sushiswap is better
-		routes[CVX] = Route.UniswapV3Path;
-		routes[PNT] = Route.UniswapV2;
+		routes[CRV] = Route.UniswapV2; // TODO: Uniswap V3 0.3% fee tier is best
+		routes[CVX] = Route.UniswapV2; // TODO: SushiSwap is better
+		routes[LDO] = Route.UniswapV2; // TODO: sushiSwap is better
 	}
 
 	/*////////////////////////////
@@ -54,7 +58,7 @@ contract WbtcSwap is ISwap, Ownable {
 	) external returns (uint256 received) {
 		Route route = routes[_tokenIn];
 		if (route == Route.Unsupported) revert UnsupportedToken(_tokenIn);
-		if (_tokenOut != WBTC) revert UnsupportedToken(_tokenOut);
+		if (_tokenOut != WETH) revert UnsupportedToken(_tokenOut);
 
 		ERC20 tokenIn = ERC20(_tokenIn);
 		tokenIn.safeTransferFrom(msg.sender, address(this), _amount);
@@ -85,11 +89,12 @@ contract WbtcSwap is ISwap, Ownable {
 		uint256 _amount,
 		uint256 _minReceived
 	) internal returns (uint256) {
-		address[] memory path = new address[](3);
+		if (_tokenOut != WETH) revert UnsupportedToken(_tokenOut);
+
+		address[] memory path = new address[](2);
 
 		path[0] = _tokenIn;
 		path[1] = WETH;
-		path[2] = _tokenOut;
 
 		return uniswap.swapExactTokensForTokens(_amount, _minReceived, path, msg.sender);
 	}

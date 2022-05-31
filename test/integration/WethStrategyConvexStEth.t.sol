@@ -4,11 +4,11 @@ pragma solidity 0.8.9;
 import 'forge-std/Test.sol';
 import 'solmate/tokens/ERC20.sol';
 import 'src/Vault.sol';
-import 'src/strategies/WbtcStrategyConvexPbtc.sol';
-import 'src/swaps/WbtcSwap.sol';
+import 'src/strategies/WethStrategyConvexStEth.sol';
+import 'src/swaps/WethSwap.sol';
 import '../TestHelpers.sol';
 
-contract WbtcStrategyConvexPbtcTest is Test, TestHelpers {
+contract WbtcStrategyConvexRenTest is Test, TestHelpers {
 	Vault vault;
 	ISwap swap;
 	Strategy strategy;
@@ -16,22 +16,22 @@ contract WbtcStrategyConvexPbtcTest is Test, TestHelpers {
 	address constant u1 = address(0xABCD);
 	address constant treasury = address(0xAAAF);
 
-	ERC20 constant WBTC = ERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
-	address constant wbtcWhale = 0x9ff58f4fFB29fA2266Ab25e75e2A8b3503311656; // Aave
+	ERC20 constant WETH = ERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+	address constant wethWhale = 0xE78388b4CE79068e89Bf8aA7f218eF6b9AB0e9d0;
 
-	// 0.1 WBTC,
-	uint256 internal constant lowerLimit = 1e7;
-	// 1000 WBTC
-	uint256 internal constant upperLimit = 1e11;
+	// 0.01 WETH
+	uint256 internal constant lowerLimit = 1e16;
+	// 1000 WETH
+	uint256 internal constant upperLimit = 1e21;
 
 	ERC20 constant CRV = ERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
 	ERC20 constant CVX = ERC20(0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B);
-	ERC20 constant PNT = ERC20(0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD);
+	ERC20 constant LDO = ERC20(0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32);
 
 	function setUp() public {
-		vault = new Vault(WBTC, new address[](0), 0);
-		swap = new WbtcSwap();
-		strategy = new WbtcStrategyConvexPbtc(vault, treasury, new address[](0), swap);
+		vault = new Vault(WETH, new address[](0), 0);
+		swap = new WethSwap();
+		strategy = new WethStrategyConvexStEth(vault, treasury, new address[](0), swap);
 		vault.addStrategy(strategy, 100);
 	}
 
@@ -39,15 +39,15 @@ contract WbtcStrategyConvexPbtcTest is Test, TestHelpers {
 	/      Helpers      /
 	///////////////////*/
 
-	function depositWbtc(
+	function depositWeth(
 		address from,
 		uint256 amount,
 		address receiver
 	) public {
-		vm.prank(wbtcWhale);
-		WBTC.transfer(from, amount);
+		vm.prank(wethWhale);
+		WETH.transfer(from, amount);
 		vm.startPrank(from);
-		WBTC.approve(address(vault), type(uint256).max);
+		WETH.approve(address(vault), type(uint256).max);
 		vault.deposit(amount, receiver);
 		vm.stopPrank();
 	}
@@ -59,7 +59,7 @@ contract WbtcStrategyConvexPbtcTest is Test, TestHelpers {
 	function testDepositAndInvest(uint256 amount) public {
 		vm.assume(amount >= lowerLimit && amount <= upperLimit);
 
-		depositWbtc(u1, amount, u1);
+		depositWeth(u1, amount, u1);
 
 		assertEq(vault.totalAssets(), amount);
 
@@ -70,20 +70,20 @@ contract WbtcStrategyConvexPbtcTest is Test, TestHelpers {
 	function testWithdraw(uint256 amount) public {
 		vm.assume(amount >= lowerLimit && amount <= upperLimit);
 
-		depositWbtc(u1, amount, u1);
+		depositWeth(u1, amount, u1);
 
 		vault.report(strategy);
 
 		vm.startPrank(u1);
 		vault.redeem(vault.balanceOf(u1), u1, u1);
 
-		assertCloseTo(WBTC.balanceOf(u1), amount, 10); // 1%
+		assertCloseTo(WETH.balanceOf(u1), amount, 10); // 1%
 	}
 
 	function testHarvest(uint256 amount) public {
 		vm.assume(amount >= lowerLimit && amount <= upperLimit);
 
-		depositWbtc(u1, amount, u1);
+		depositWeth(u1, amount, u1);
 
 		vault.report(strategy);
 
@@ -91,7 +91,7 @@ contract WbtcStrategyConvexPbtcTest is Test, TestHelpers {
 
 		assertEq(CRV.balanceOf(treasury), 0);
 		assertEq(CVX.balanceOf(treasury), 0);
-		assertEq(PNT.balanceOf(treasury), 0);
+		assertEq(LDO.balanceOf(treasury), 0);
 
 		vm.warp(block.timestamp + 14 days);
 
@@ -100,6 +100,6 @@ contract WbtcStrategyConvexPbtcTest is Test, TestHelpers {
 		assertGt(strategy.totalAssets(), startingAssets);
 		assertGt(CRV.balanceOf(treasury), 0);
 		assertGt(CVX.balanceOf(treasury), 0);
-		assertGt(PNT.balanceOf(treasury), 0);
+		assertGt(LDO.balanceOf(treasury), 0);
 	}
 }
