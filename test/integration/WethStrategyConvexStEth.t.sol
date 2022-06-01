@@ -6,18 +6,19 @@ import 'solmate/tokens/ERC20.sol';
 import 'src/Vault.sol';
 import 'src/strategies/WethStrategyConvexStEth.sol';
 import 'src/Swap.sol';
+import 'src/zaps/WethZap.sol';
 import '../TestHelpers.sol';
 
 contract WethStrategyConvexStEthTest is Test, TestHelpers {
 	Vault vault;
 	Swap swap;
+	WethZap zap;
 	Strategy strategy;
 
 	address constant u1 = address(0xABCD);
 	address constant treasury = address(0xAAAF);
 
 	ERC20 constant WETH9 = ERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-	address constant wethWhale = 0xE78388b4CE79068e89Bf8aA7f218eF6b9AB0e9d0;
 
 	// 0.01 WETH
 	uint256 internal constant lowerLimit = 1e16;
@@ -33,6 +34,7 @@ contract WethStrategyConvexStEthTest is Test, TestHelpers {
 		swap = new Swap();
 		strategy = new WethStrategyConvexStEth(vault, treasury, new address[](0), swap);
 		vault.addStrategy(strategy, 100);
+		zap = new WethZap(vault);
 	}
 
 	/*///////////////////
@@ -44,11 +46,9 @@ contract WethStrategyConvexStEthTest is Test, TestHelpers {
 		uint256 amount,
 		address receiver
 	) public {
-		vm.prank(wethWhale);
-		WETH9.transfer(from, amount);
+		vm.deal(from, amount);
 		vm.startPrank(from);
-		WETH9.approve(address(vault), type(uint256).max);
-		vault.deposit(amount, receiver);
+		zap.depositETH{value: amount}(receiver);
 		vm.stopPrank();
 	}
 
@@ -75,9 +75,10 @@ contract WethStrategyConvexStEthTest is Test, TestHelpers {
 		vault.report(strategy);
 
 		vm.startPrank(u1);
-		vault.redeem(vault.balanceOf(u1), u1, u1);
+		vault.approve(address(zap), type(uint256).max);
+		zap.redeemETH(vault.balanceOf(u1), u1, u1);
 
-		assertCloseTo(WETH9.balanceOf(u1), amount, 10); // 1%
+		assertCloseTo(address(u1).balance, amount, 10); // 1%
 	}
 
 	function testHarvest(uint256 amount) public {
