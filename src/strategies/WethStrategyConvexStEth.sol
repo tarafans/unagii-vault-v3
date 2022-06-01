@@ -5,7 +5,7 @@ import 'solmate/tokens/WETH.sol';
 import '../external/convex/IBaseRewardPool.sol';
 import '../external/convex/IBooster.sol';
 import '../external/curve/IStableSwapEth.sol';
-import '../interfaces/ISwap.sol';
+import '../Swap.sol';
 import '../Strategy.sol';
 
 contract WethStrategyConvexStEth is Strategy {
@@ -13,7 +13,7 @@ contract WethStrategyConvexStEth is Strategy {
 	using FixedPointMathLib for uint256;
 
 	/// @notice contract used to swap CRV/CVX rewards to ETH
-	ISwap public swap;
+	Swap public swap;
 
 	/// @dev pid of stETH in Convex
 	uint8 internal constant pid = 25;
@@ -48,7 +48,7 @@ contract WethStrategyConvexStEth is Strategy {
 		Vault _vault,
 		address _treasury,
 		address[] memory _authorized,
-		ISwap _swap
+		Swap _swap
 	) Strategy(_vault, _treasury, _authorized) {
 		swap = _swap;
 
@@ -71,7 +71,7 @@ contract WethStrategyConvexStEth is Strategy {
 	/      Restricted Functions: onlyOwner      /
 	///////////////////////////////////////////*/
 
-	function changeSwap(ISwap _swap) external onlyOwner {
+	function changeSwap(Swap _swap) external onlyOwner {
 		_unapprove();
 		swap = _swap;
 		_approve();

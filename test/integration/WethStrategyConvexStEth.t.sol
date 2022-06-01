@@ -5,18 +5,18 @@ import 'forge-std/Test.sol';
 import 'solmate/tokens/ERC20.sol';
 import 'src/Vault.sol';
 import 'src/strategies/WethStrategyConvexStEth.sol';
-import 'src/swaps/WethSwap.sol';
+import 'src/Swap.sol';
 import '../TestHelpers.sol';
 
-contract WbtcStrategyConvexRenTest is Test, TestHelpers {
+contract WethStrategyConvexStEthTest is Test, TestHelpers {
 	Vault vault;
-	ISwap swap;
+	Swap swap;
 	Strategy strategy;
 
 	address constant u1 = address(0xABCD);
 	address constant treasury = address(0xAAAF);
 
-	ERC20 constant WETH = ERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+	ERC20 constant WETH9 = ERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 	address constant wethWhale = 0xE78388b4CE79068e89Bf8aA7f218eF6b9AB0e9d0;
 
 	// 0.01 WETH
@@ -29,8 +29,8 @@ contract WbtcStrategyConvexRenTest is Test, TestHelpers {
 	ERC20 constant LDO = ERC20(0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32);
 
 	function setUp() public {
-		vault = new Vault(WETH, new address[](0), 0);
-		swap = new WethSwap();
+		vault = new Vault(WETH9, new address[](0), 0);
+		swap = new Swap();
 		strategy = new WethStrategyConvexStEth(vault, treasury, new address[](0), swap);
 		vault.addStrategy(strategy, 100);
 	}
@@ -45,9 +45,9 @@ contract WbtcStrategyConvexRenTest is Test, TestHelpers {
 		address receiver
 	) public {
 		vm.prank(wethWhale);
-		WETH.transfer(from, amount);
+		WETH9.transfer(from, amount);
 		vm.startPrank(from);
-		WETH.approve(address(vault), type(uint256).max);
+		WETH9.approve(address(vault), type(uint256).max);
 		vault.deposit(amount, receiver);
 		vm.stopPrank();
 	}
@@ -77,7 +77,7 @@ contract WbtcStrategyConvexRenTest is Test, TestHelpers {
 		vm.startPrank(u1);
 		vault.redeem(vault.balanceOf(u1), u1, u1);
 
-		assertCloseTo(WETH.balanceOf(u1), amount, 10); // 1%
+		assertCloseTo(WETH9.balanceOf(u1), amount, 10); // 1%
 	}
 
 	function testHarvest(uint256 amount) public {

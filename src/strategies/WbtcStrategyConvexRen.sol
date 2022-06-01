@@ -4,7 +4,7 @@ pragma solidity 0.8.9;
 import '../external/convex/IBaseRewardPool.sol';
 import '../external/convex/IBooster.sol';
 import '../external/curve/IStableSwapRenBtc.sol';
-import '../interfaces/ISwap.sol';
+import '../Swap.sol';
 import '../Strategy.sol';
 
 contract WbtcStrategyConvexRen is Strategy {
@@ -12,7 +12,7 @@ contract WbtcStrategyConvexRen is Strategy {
 	using FixedPointMathLib for uint256;
 
 	/// @notice contract used to swap CRV/CVX rewards to WBTC
-	ISwap public swap;
+	Swap public swap;
 
 	/// @dev pid of renBTC in Convex
 	uint8 internal constant pid = 6;
@@ -46,7 +46,7 @@ contract WbtcStrategyConvexRen is Strategy {
 		Vault _vault,
 		address _treasury,
 		address[] memory _authorized,
-		ISwap _swap
+		Swap _swap
 	) Strategy(_vault, _treasury, _authorized) {
 		swap = _swap;
 
@@ -67,7 +67,7 @@ contract WbtcStrategyConvexRen is Strategy {
 	/      Restricted Functions: onlyOwner      /
 	///////////////////////////////////////////*/
 
-	function changeSwap(ISwap _swap) external onlyOwner {
+	function changeSwap(Swap _swap) external onlyOwner {
 		_unapprove();
 		swap = _swap;
 		_approve();

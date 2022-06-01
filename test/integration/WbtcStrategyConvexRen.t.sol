@@ -5,12 +5,12 @@ import 'forge-std/Test.sol';
 import 'solmate/tokens/ERC20.sol';
 import 'src/Vault.sol';
 import 'src/strategies/WbtcStrategyConvexRen.sol';
-import 'src/swaps/WbtcSwap.sol';
+import 'src/Swap.sol';
 import '../TestHelpers.sol';
 
 contract WbtcStrategyConvexRenTest is Test, TestHelpers {
 	Vault vault;
-	ISwap swap;
+	Swap swap;
 	Strategy strategy;
 
 	address constant u1 = address(0xABCD);
@@ -29,7 +29,7 @@ contract WbtcStrategyConvexRenTest is Test, TestHelpers {
 
 	function setUp() public {
 		vault = new Vault(WBTC, new address[](0), 0);
-		swap = new WbtcSwap();
+		swap = new Swap();
 		strategy = new WbtcStrategyConvexRen(vault, treasury, new address[](0), swap);
 		vault.addStrategy(strategy, 100);
 	}

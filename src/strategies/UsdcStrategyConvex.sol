@@ -5,7 +5,7 @@ import '../external/convex/IBaseRewardPool.sol';
 import '../external/convex/IBooster.sol';
 import '../external/curve/IFactoryDepositZap.sol';
 import '../external/curve/IFactoryMetaPool.sol';
-import '../interfaces/ISwap.sol';
+import '../Swap.sol';
 import '../Strategy.sol';
 
 contract UsdcStrategyConvex is Strategy {
@@ -14,7 +14,7 @@ contract UsdcStrategyConvex is Strategy {
 	using FixedPointMathLib for uint256;
 
 	/// @notice contract used to swap CRV/CVX rewards to USDC
-	ISwap public swap;
+	Swap public swap;
 
 	uint8 immutable pid;
 	IFactoryMetaPool immutable pool;
@@ -52,7 +52,7 @@ contract UsdcStrategyConvex is Strategy {
 		address _treasury,
 		address[] memory _authorized,
 		uint8 _pid,
-		ISwap _swap
+		Swap _swap
 	) Strategy(_vault, _treasury, _authorized) {
 		(address lpToken, , , address crvRewards, , ) = booster.poolInfo(_pid);
 
@@ -78,7 +78,7 @@ contract UsdcStrategyConvex is Strategy {
 	/      Restricted Functions: onlyOwner      /
 	///////////////////////////////////////////*/
 
-	function changeSwap(ISwap _swap) external onlyOwner {
+	function changeSwap(Swap _swap) external onlyOwner {
 		_unapprove();
 		swap = _swap;
 		_approve();

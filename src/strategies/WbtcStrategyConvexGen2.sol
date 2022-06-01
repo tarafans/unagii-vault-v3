@@ -7,7 +7,7 @@ import '../external/convex/IBaseRewardPool.sol';
 import '../external/convex/IBooster.sol';
 import '../external/curve/IGen2DepositZap.sol';
 import '../external/curve/IGen2MetaPool.sol';
-import '../interfaces/ISwap.sol';
+import '../Swap.sol';
 import '../Strategy.sol';
 
 // strategy for older pre-factory curve metapools
@@ -16,7 +16,7 @@ contract WbtcStrategyConvexGen2 is Strategy {
 	using FixedPointMathLib for uint256;
 
 	/// @notice contract used to swap CRV/CVX rewards to WBTC
-	ISwap public swap;
+	Swap public swap;
 
 	uint8 immutable pid;
 	IGen2MetaPool immutable pool;
@@ -60,7 +60,7 @@ contract WbtcStrategyConvexGen2 is Strategy {
 		address[] memory _authorized,
 		IGen2DepositZap _zap,
 		uint8 _pid,
-		ISwap _swap
+		Swap _swap
 	) Strategy(_vault, _treasury, _authorized) {
 		(address lpToken, , , address crvRewards, , ) = booster.poolInfo(_pid);
 
@@ -88,7 +88,7 @@ contract WbtcStrategyConvexGen2 is Strategy {
 	/      Restricted Functions: onlyOwner      /
 	///////////////////////////////////////////*/
 
-	function changeSwap(ISwap _swap) external onlyOwner {
+	function changeSwap(Swap _swap) external onlyOwner {
 		_unapprove();
 		swap = _swap;
 		_approve();
