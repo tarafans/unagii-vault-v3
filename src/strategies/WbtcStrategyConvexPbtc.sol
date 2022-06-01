@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.9;
 
-import 'forge-std/console.sol';
-
 import '../external/convex/IBaseRewardPool.sol';
 import '../external/convex/IBooster.sol';
 import '../external/curve/IGen2DepositZap.sol';
@@ -129,7 +127,6 @@ contract WbtcStrategyConvexPbtc is Strategy {
 				rewardBalance -= feeAmount;
 			}
 
-			console.log(rewardBalance, rewardToken.balanceOf(address(this)));
 			swap.swapTokens(address(rewardToken), address(asset), rewardBalance, 1);
 		}
 

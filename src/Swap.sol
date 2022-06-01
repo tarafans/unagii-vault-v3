@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.9;
 
-import 'forge-std/console.sol';
-
 import 'solmate/tokens/ERC20.sol';
 import 'solmate/utils/SafeTransferLib.sol';
 import './external/uniswap/ISwapRouter02.sol';
@@ -150,9 +148,6 @@ contract Swap is Ownable {
 		if (route == Route.UniswapV3Path) return _uniswapV3Path(_amount, _minReceived, info);
 		if (route == Route.SushiSwap) return _sushiswap(_amount, _minReceived, info);
 
-		console.log(route == Route.UniswapV3Path);
-		console.log(_tokenIn, _tokenOut);
-
 		revert UnsupportedRoute(_tokenIn, _tokenOut);
 	}
 
@@ -203,10 +198,8 @@ contract Swap is Ownable {
 			(address tokenIn, , ) = path.decodeFirstPool();
 			if (tokenIn != _tokenIn) revert InvalidRouteInfo();
 
-			// skipp till last token
-			while (path.hasMultiplePools()) path = path.skipToken();
-
 			// check last tokenOut
+			while (path.hasMultiplePools()) path = path.skipToken();
 			(, address tokenOut, ) = path.decodeFirstPool();
 			if (tokenOut != _tokenOut) revert InvalidRouteInfo();
 		}
