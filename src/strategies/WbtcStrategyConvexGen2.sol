@@ -24,7 +24,7 @@ contract WbtcStrategyConvexGen2 is Strategy {
 
 	bool public shouldClaimExtras = true;
 
-	ERC20[] public rewards = [CRV, CVX];
+	ERC20[2] public rewards = [CRV, CVX];
 
 	IBooster private constant booster = IBooster(0xF403C135812408BFbE8713b5A23a04b3D48AAE31);
 

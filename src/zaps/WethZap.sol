@@ -20,21 +20,17 @@ contract WethZap {
 	receive() external payable {}
 
 	function safeDepositETH(address _receiver, uint256 _minShares) external payable returns (uint256 shares) {
-		uint256 assets = msg.value;
+		WETH9.deposit{value: msg.value}();
+		WETH9.safeApprove(address(vault), msg.value);
 
-		WETH9.deposit{value: assets}();
-		WETH9.safeApprove(address(vault), assets);
-
-		return vault.safeDeposit(assets, _receiver, _minShares);
+		return vault.safeDeposit(msg.value, _receiver, _minShares);
 	}
 
 	function depositETH(address _receiver) external payable returns (uint256 shares) {
-		uint256 assets = msg.value;
+		WETH9.deposit{value: msg.value}();
+		WETH9.safeApprove(address(vault), msg.value);
 
-		WETH9.deposit{value: assets}();
-		WETH9.safeApprove(address(vault), assets);
-
-		return vault.deposit(assets, _receiver);
+		return vault.deposit(msg.value, _receiver);
 	}
 
 	/// @notice user has to approve zap using vault share tokens

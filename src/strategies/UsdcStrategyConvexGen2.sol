@@ -23,7 +23,7 @@ contract UsdcStrategyConvexGen2 is Strategy {
 	IGen2DepositZap immutable zap;
 
 	/// @dev child contracts should override this if there are more rewards
-	ERC20[] public rewards = [CRV, CVX];
+	ERC20[2] public rewards = [CRV, CVX];
 	bool public shouldClaimExtras = true;
 
 	IBooster private constant booster = IBooster(0xF403C135812408BFbE8713b5A23a04b3D48AAE31);
