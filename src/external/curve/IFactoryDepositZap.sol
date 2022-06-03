@@ -5,12 +5,6 @@ pragma solidity 0.8.9;
 // deposit zap for curve factory metapools
 
 interface IFactoryDepositZap {
-	function calc_withdraw_one_coin(
-		address pool,
-		uint256 amount,
-		int128 i
-	) external view returns (uint256);
-
 	function add_liquidity(
 		address _pool,
 		uint256[4] memory _deposit_amounts,

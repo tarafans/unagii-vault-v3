@@ -1,50 +1,42 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.9;
 
+import 'solmate/tokens/WETH.sol';
 import '../external/convex/IBaseRewardPool.sol';
 import '../external/convex/IBooster.sol';
-import '../external/curve/IGen2DepositZap.sol';
-import '../external/curve/IGen2MetaPool.sol';
+import '../external/curve/IStableSwapEth.sol';
 import '../Swap.sol';
 import '../Strategy.sol';
 
-// strategy for older pre-factory curve metapools
-contract UsdcStrategyConvexGen2 is Strategy {
+contract WethStrategyConvexStEth is Strategy {
 	using SafeTransferLib for ERC20;
 	using FixedPointMathLib for uint256;
 
-	/// @notice contract used to swap CRV/CVX rewards to USDC
+	/// @notice contract used to swap CRV/CVX rewards to ETH
 	Swap public swap;
 
-	uint8 immutable pid;
-	IGen2MetaPool immutable pool;
-	ERC20 immutable poolToken;
-	IBaseRewardPool immutable reward;
-	IGen2DepositZap immutable zap;
-
-	/// @dev child contracts should override this if there are more rewards
-	ERC20[2] public rewards = [CRV, CVX];
-	bool public shouldClaimExtras = true;
-
+	/// @dev pid of stETH in Convex
+	uint8 internal constant pid = 25;
+	ERC20 private constant poolToken = ERC20(0x06325440D014e39736583c165C2963BA99fAf14E);
+	IBaseRewardPool private constant reward = IBaseRewardPool(0x0A760466E1B4621579a82a39CB56Dda2F4E70f03);
+	IStableSwapEth private constant pool = IStableSwapEth(0xDC24316b9AE028F1497c275EB9192a3Ea0f67022);
 	IBooster private constant booster = IBooster(0xF403C135812408BFbE8713b5A23a04b3D48AAE31);
 
 	ERC20 internal constant CRV = ERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
 	ERC20 internal constant CVX = ERC20(0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B);
+	ERC20 internal constant LDO = ERC20(0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32);
 
-	/// @dev index of USDC in metapool
-	int128 internal constant INDEX_OF_ASSET = 2;
-	/// @dev normalize USDC to 18 decimals + offset pool.get_virtual_price()'s 18 decimals
-	uint256 internal constant NORMALIZED_DECIMAL_OFFSET = 1e30;
+	ERC20[3] public rewards = [CRV, CVX, LDO];
+	bool public shouldClaimExtras = true;
 
-	/*///////////////
-	/     Events    /
-	///////////////*/
+	/// @dev index of WETH in pool (technically just ETH)
+	int128 internal constant INDEX_OF_ASSET = 0;
+	/// @dev offset pool.get_virtual_price()'s 18 decimals
+	uint256 internal constant NORMALIZED_DECIMAL_OFFSET = 1e18;
 
 	/*///////////////
 	/     Errors    /
 	///////////////*/
-
-	error InvalidPool();
 
 	error ClaimRewardsFailed();
 	error WithdrawAndUnwrapFailed();
@@ -56,21 +48,14 @@ contract UsdcStrategyConvexGen2 is Strategy {
 		Vault _vault,
 		address _treasury,
 		address[] memory _authorized,
-		IGen2DepositZap _zap,
-		uint8 _pid,
 		Swap _swap
 	) Strategy(_vault, _treasury, _authorized) {
-		(address lpToken, , , address crvRewards, , ) = booster.poolInfo(_pid);
-
-		poolToken = ERC20(lpToken);
-		pool = IGen2MetaPool(_zap.pool());
-		reward = IBaseRewardPool(crvRewards);
-		zap = _zap;
-		pid = _pid;
 		swap = _swap;
 
 		_approve();
 	}
+
+	receive() external payable {}
 
 	/*///////////////////////
 	/      Public View      /
@@ -79,7 +64,7 @@ contract UsdcStrategyConvexGen2 is Strategy {
 	function totalAssets() public view override returns (uint256 assets) {
 		uint256 rewardBalance = reward.balanceOf(address(this));
 		if (rewardBalance == 0) return assets;
-		assets += rewardBalance.mulDivDown(pool.base_virtual_price(), NORMALIZED_DECIMAL_OFFSET);
+		assets += rewardBalance.mulDivDown(pool.get_virtual_price(), NORMALIZED_DECIMAL_OFFSET);
 	}
 
 	/*///////////////////////////////////////////
@@ -115,7 +100,15 @@ contract UsdcStrategyConvexGen2 is Strategy {
 
 		if (!reward.withdrawAndUnwrap(tokenAmount, true)) revert WithdrawAndUnwrapFailed();
 
-		received = zap.remove_liquidity_one_coin(tokenAmount, INDEX_OF_ASSET, _calculateSlippage(amount));
+		uint256 balanceBefore = address(this).balance;
+		pool.remove_liquidity_one_coin(tokenAmount, INDEX_OF_ASSET, _calculateSlippage(amount));
+		unchecked {
+			// older curve pools lack return values
+			received = address(this).balance - balanceBefore;
+		}
+
+		WETH(payable(address(asset))).deposit{value: received}();
+
 		asset.safeTransfer(_receiver, received);
 	}
 
@@ -146,11 +139,17 @@ contract UsdcStrategyConvexGen2 is Strategy {
 		uint256 assetBalance = asset.balanceOf(address(this));
 		if (assetBalance == 0) revert NothingToInvest();
 
-		uint256 min = _calculateSlippage(assetBalance.mulDivDown(NORMALIZED_DECIMAL_OFFSET, pool.base_virtual_price()));
+		uint256 min = _calculateSlippage(assetBalance.mulDivDown(NORMALIZED_DECIMAL_OFFSET, pool.get_virtual_price()));
 
-		uint256 received = zap.add_liquidity([0, 0, assetBalance, 0], min);
+		WETH(payable(address(asset))).withdraw(assetBalance);
 
-		if (!booster.deposit(pid, received, true)) revert DepositFailed();
+		uint256 balanceBefore = poolToken.balanceOf(address(this));
+		pool.add_liquidity{value: assetBalance}([assetBalance, 0], min);
+		unchecked {
+			// older curve pools lack return values
+			uint256 received = poolToken.balanceOf(address(this)) - balanceBefore;
+			if (!booster.deposit(pid, received, true)) revert DepositFailed();
+		}
 	}
 
 	/*//////////////////////////////
@@ -158,14 +157,14 @@ contract UsdcStrategyConvexGen2 is Strategy {
 	//////////////////////////////*/
 
 	function _approve() internal {
-		// approve deposit USDC into zap
-		asset.safeApprove(address(zap), type(uint256).max);
+		// approve deposit ETH into pool
+		asset.safeApprove(address(pool), type(uint256).max);
 		// approve deposit lpTokens into booster
 		poolToken.safeApprove(address(booster), type(uint256).max);
 		// approve withdraw lpTokens
-		poolToken.safeApprove(address(zap), type(uint256).max);
+		poolToken.safeApprove(address(pool), type(uint256).max);
 
-		// approve swap rewards to USDC
+		// approve swap rewards to ETH
 		uint8 length = uint8(rewards.length);
 		for (uint8 i = 0; i < length; ++i) {
 			rewards[i].safeApprove(address(swap), type(uint256).max);
@@ -173,9 +172,9 @@ contract UsdcStrategyConvexGen2 is Strategy {
 	}
 
 	function _unapprove() internal {
-		asset.safeApprove(address(zap), 0);
+		asset.safeApprove(address(pool), 0);
 		poolToken.safeApprove(address(booster), 0);
-		poolToken.safeApprove(address(zap), 0);
+		poolToken.safeApprove(address(pool), 0);
 
 		// approve swap rewards to USDC
 		uint8 length = uint8(rewards.length);

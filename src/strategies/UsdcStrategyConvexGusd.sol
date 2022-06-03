@@ -8,7 +8,7 @@ contract UsdcStrategyConvexGusd is UsdcStrategyConvexGen2 {
 		Vault _vault,
 		address _treasury,
 		address[] memory _authorized,
-		ISwap _swap
+		Swap _swap
 	)
 		UsdcStrategyConvexGen2(
 			_vault,

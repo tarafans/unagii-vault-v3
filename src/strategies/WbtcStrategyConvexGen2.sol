@@ -9,11 +9,11 @@ import '../Swap.sol';
 import '../Strategy.sol';
 
 // strategy for older pre-factory curve metapools
-contract UsdcStrategyConvexGen2 is Strategy {
+contract WbtcStrategyConvexGen2 is Strategy {
 	using SafeTransferLib for ERC20;
 	using FixedPointMathLib for uint256;
 
-	/// @notice contract used to swap CRV/CVX rewards to USDC
+	/// @notice contract used to swap CRV/CVX rewards to WBTC
 	Swap public swap;
 
 	uint8 immutable pid;
@@ -22,19 +22,19 @@ contract UsdcStrategyConvexGen2 is Strategy {
 	IBaseRewardPool immutable reward;
 	IGen2DepositZap immutable zap;
 
-	/// @dev child contracts should override this if there are more rewards
-	ERC20[2] public rewards = [CRV, CVX];
 	bool public shouldClaimExtras = true;
+
+	ERC20[2] public rewards = [CRV, CVX];
 
 	IBooster private constant booster = IBooster(0xF403C135812408BFbE8713b5A23a04b3D48AAE31);
 
 	ERC20 internal constant CRV = ERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
 	ERC20 internal constant CVX = ERC20(0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B);
 
-	/// @dev index of USDC in metapool
+	/// @dev index of WBTC in metapool
 	int128 internal constant INDEX_OF_ASSET = 2;
-	/// @dev normalize USDC to 18 decimals + offset pool.get_virtual_price()'s 18 decimals
-	uint256 internal constant NORMALIZED_DECIMAL_OFFSET = 1e30;
+	/// @dev normalize WBTC to 18 decimals + offset pool.get_virtual_price()'s 18 decimals
+	uint256 internal constant NORMALIZED_DECIMAL_OFFSET = 1e28;
 
 	/*///////////////
 	/     Events    /
@@ -158,14 +158,14 @@ contract UsdcStrategyConvexGen2 is Strategy {
 	//////////////////////////////*/
 
 	function _approve() internal {
-		// approve deposit USDC into zap
+		// approve deposit WBTC into zap
 		asset.safeApprove(address(zap), type(uint256).max);
 		// approve deposit lpTokens into booster
 		poolToken.safeApprove(address(booster), type(uint256).max);
 		// approve withdraw lpTokens
 		poolToken.safeApprove(address(zap), type(uint256).max);
 
-		// approve swap rewards to USDC
+		// approve swap rewards to WBTC
 		uint8 length = uint8(rewards.length);
 		for (uint8 i = 0; i < length; ++i) {
 			rewards[i].safeApprove(address(swap), type(uint256).max);
@@ -177,7 +177,7 @@ contract UsdcStrategyConvexGen2 is Strategy {
 		poolToken.safeApprove(address(booster), 0);
 		poolToken.safeApprove(address(zap), 0);
 
-		// approve swap rewards to USDC
+		// approve swap rewards to WBTC
 		uint8 length = uint8(rewards.length);
 		for (uint8 i = 0; i < length; ++i) {
 			rewards[i].safeApprove(address(swap), 0);

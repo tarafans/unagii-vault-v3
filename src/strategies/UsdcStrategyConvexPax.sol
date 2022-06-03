@@ -8,6 +8,6 @@ contract UsdcStrategyConvexPax is UsdcStrategyConvex {
 		Vault _vault,
 		address _treasury,
 		address[] memory _authorized,
-		ISwap _swap
+		Swap _swap
 	) UsdcStrategyConvex(_vault, _treasury, _authorized, 57, _swap) {}
 }
