@@ -139,8 +139,7 @@ contract Swap is Ownable {
 		RouteInfo memory routeInfo = routes[_tokenIn][_tokenOut];
 		Route route = routeInfo.route;
 
-		ERC20 tokenIn = ERC20(_tokenIn);
-		tokenIn.safeTransferFrom(msg.sender, address(this), _amount);
+		ERC20(_tokenIn).safeTransferFrom(msg.sender, address(this), _amount);
 
 		bytes memory info = routeInfo.info;
 
