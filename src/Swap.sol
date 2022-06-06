@@ -62,6 +62,7 @@ contract Swap is Ownable {
 	//////////////////*/
 
 	event RouteSet(address indexed tokenIn, address indexed tokenOut, RouteInfo routeInfo);
+	event RouteRemoved(address indexed tokenIn, address indexed tokenOut);
 
 	/*//////////////////
 	/      Errors      /
@@ -165,6 +166,7 @@ contract Swap is Ownable {
 
 	function unsetRoute(address _tokenIn, address _tokenOut) external onlyOwner {
 		delete routes[_tokenIn][_tokenOut];
+		emit RouteRemoved(_tokenIn, _tokenOut);
 	}
 
 	/*//////////////////////////////

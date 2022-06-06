@@ -330,9 +330,14 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		_setDebtRatio(_strategy, 0);
 	}
 
-	function collectFromStrategy(Strategy _strategy, uint256 _assets) external onlyAuthorized {
+	function collectFromStrategy(
+		Strategy _strategy,
+		uint256 _assets,
+		uint256 _minReceived
+	) external onlyAuthorized returns (uint256 received) {
 		if (!strategies[_strategy].added) revert NotStrategy();
-		_collect(_strategy, _assets, address(this));
+		(received, ) = _collect(_strategy, _assets, address(this));
+		if (received < _minReceived) revert BelowMinimum(received);
 	}
 
 	function pause() external onlyAuthorized {
