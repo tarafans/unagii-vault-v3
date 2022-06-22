@@ -16,9 +16,9 @@ contract UsdcStrategyConvex is Strategy {
 	/// @notice contract used to swap CRV/CVX rewards to USDC
 	Swap public swap;
 
-	uint8 immutable pid;
-	IFactoryMetaPool immutable pool;
-	IBaseRewardPool immutable reward;
+	uint8 public immutable pid;
+	IFactoryMetaPool public immutable pool;
+	IBaseRewardPool public immutable reward;
 
 	/// @dev child contracts should override this if there are more rewards
 	ERC20[2] public rewards = [CRV, CVX];
@@ -91,6 +91,11 @@ contract UsdcStrategyConvex is Strategy {
 	function reapprove() external onlyAuthorized {
 		_unapprove();
 		_approve();
+	}
+
+	function setShouldClaimExtras(bool _shouldClaimExtras) external onlyAuthorized {
+		if (shouldClaimExtras = _shouldClaimExtras) revert AlreadyValue();
+		shouldClaimExtras = _shouldClaimExtras;
 	}
 
 	/*/////////////////////////////

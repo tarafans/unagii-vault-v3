@@ -56,6 +56,9 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	event StrategyRemoved(Strategy indexed strategy);
 	event StrategyQueuePositionsSwapped(uint8 i, uint8 j, Strategy indexed newI, Strategy indexed newJ);
 
+	event LockedProfitDurationChanged(uint256 newDuration);
+	event MaxDepositChanged(uint256 newMaxDeposit);
+
 	/*//////////////////
 	/      Errors      /
 	//////////////////*/
@@ -153,6 +156,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
 	function previewWithdraw(uint256 assets) public view returns (uint256 shares) {
 		uint256 supply = totalSupply;
+
 		return supply == 0 ? assets : assets.mulDivUp(supply, freeAssets());
 	}
 
@@ -315,6 +319,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		if (_newDuration > MAX_LOCKED_PROFIT_DURATION) revert AboveMaximum(_newDuration);
 		if (_newDuration == lockedProfitDuration) revert AlreadyValue();
 		lockedProfitDuration = _newDuration;
+		emit LockedProfitDurationChanged(_newDuration);
 	}
 
 	function setBlockDelay(uint8 _newDelay) external onlyAdmins {
@@ -353,6 +358,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	function setMaxDeposit(uint256 _newMaxDeposit) external onlyAuthorized {
 		if (_maxDeposit == _newMaxDeposit) revert AlreadyValue();
 		_maxDeposit = _newMaxDeposit;
+		emit MaxDepositChanged(_newMaxDeposit);
 	}
 
 	/// @dev costs less gas than multiple harvests if active strategies > 1
@@ -447,6 +453,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		}
 
 		_burn(_owner, _shares);
+
 		emit Withdraw(msg.sender, _receiver, _owner, _assets, _shares);
 
 		// first, withdraw from balance

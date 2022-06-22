@@ -16,10 +16,10 @@ contract WbtcStrategyConvexPbtc is Strategy {
 	Swap public swap;
 
 	uint8 internal constant pid = 18;
-	IGen2MetaPool constant pool = IGen2MetaPool(0x7F55DDe206dbAD629C080068923b36fe9D6bDBeF);
-	ERC20 constant poolToken = ERC20(0xDE5331AC4B3630f94853Ff322B66407e0D6331E8);
-	IBaseRewardPool constant reward = IBaseRewardPool(0x2d3C90AEB11D1393CA839Afc9587515B1325D77A);
-	IGen2DepositZap constant zap = IGen2DepositZap(0x11F419AdAbbFF8d595E7d5b223eee3863Bb3902C);
+	IGen2MetaPool public constant pool = IGen2MetaPool(0x7F55DDe206dbAD629C080068923b36fe9D6bDBeF);
+	ERC20 public constant poolToken = ERC20(0xDE5331AC4B3630f94853Ff322B66407e0D6331E8);
+	IBaseRewardPool public constant reward = IBaseRewardPool(0x2d3C90AEB11D1393CA839Afc9587515B1325D77A);
+	IGen2DepositZap public constant zap = IGen2DepositZap(0x11F419AdAbbFF8d595E7d5b223eee3863Bb3902C);
 
 	bool public shouldClaimExtras = true;
 
@@ -92,6 +92,11 @@ contract WbtcStrategyConvexPbtc is Strategy {
 		_approve();
 	}
 
+	function setShouldClaimExtras(bool _shouldClaimExtras) external onlyAuthorized {
+		if (shouldClaimExtras = _shouldClaimExtras) revert AlreadyValue();
+		shouldClaimExtras = _shouldClaimExtras;
+	}
+
 	/*/////////////////////////////
 	/      Internal Override      /
 	/////////////////////////////*/
@@ -102,7 +107,7 @@ contract WbtcStrategyConvexPbtc is Strategy {
 
 		uint256 amount = _assets > assets ? assets : _assets;
 
-		uint256 tokenAmount = (amount * reward.balanceOf(address(this))) / totalAssets();
+		uint256 tokenAmount = amount.mulDivDown(reward.balanceOf(address(this)), totalAssets());
 
 		if (!reward.withdrawAndUnwrap(tokenAmount, true)) revert WithdrawAndUnwrapFailed();
 

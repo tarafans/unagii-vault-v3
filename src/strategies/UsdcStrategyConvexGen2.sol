@@ -16,11 +16,11 @@ contract UsdcStrategyConvexGen2 is Strategy {
 	/// @notice contract used to swap CRV/CVX rewards to USDC
 	Swap public swap;
 
-	uint8 immutable pid;
-	IGen2MetaPool immutable pool;
-	ERC20 immutable poolToken;
-	IBaseRewardPool immutable reward;
-	IGen2DepositZap immutable zap;
+	uint8 public immutable pid;
+	IGen2MetaPool public immutable pool;
+	ERC20 public immutable poolToken;
+	IBaseRewardPool public immutable reward;
+	IGen2DepositZap public immutable zap;
 
 	/// @dev child contracts should override this if there are more rewards
 	ERC20[2] public rewards = [CRV, CVX];
@@ -101,6 +101,11 @@ contract UsdcStrategyConvexGen2 is Strategy {
 		_approve();
 	}
 
+	function setShouldClaimExtras(bool _shouldClaimExtras) external onlyAuthorized {
+		if (shouldClaimExtras = _shouldClaimExtras) revert AlreadyValue();
+		shouldClaimExtras = _shouldClaimExtras;
+	}
+
 	/*/////////////////////////////
 	/      Internal Override      /
 	/////////////////////////////*/
@@ -111,7 +116,7 @@ contract UsdcStrategyConvexGen2 is Strategy {
 
 		uint256 amount = _assets > assets ? assets : _assets;
 
-		uint256 tokenAmount = (amount * reward.balanceOf(address(this))) / totalAssets();
+		uint256 tokenAmount = amount.mulDivDown(reward.balanceOf(address(this)), totalAssets());
 
 		if (!reward.withdrawAndUnwrap(tokenAmount, true)) revert WithdrawAndUnwrapFailed();
 

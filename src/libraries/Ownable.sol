@@ -9,6 +9,8 @@ abstract contract Ownable {
 	error AlreadyRole();
 	error NotRole();
 
+	event OwnerChanged(address indexed previousOwner, address indexed newOwner);
+
 	constructor() {
 		owner = msg.sender;
 	}
@@ -17,6 +19,7 @@ abstract contract Ownable {
 
 	function acceptOwnership() external {
 		if (msg.sender != nominatedOwner) revert Unauthorized();
+		emit OwnerChanged(owner, msg.sender);
 		owner = msg.sender;
 		nominatedOwner = address(0);
 	}
