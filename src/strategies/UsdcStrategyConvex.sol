@@ -79,9 +79,9 @@ contract UsdcStrategyConvex is Strategy {
 	///////////////////////////////////////////*/
 
 	function changeSwap(Swap _swap) external onlyOwner {
-		_unapprove();
+		_unapproveSwap();
 		swap = _swap;
-		_approve();
+		_approveSwap();
 	}
 
 	/*////////////////////////////////////////////////
@@ -168,11 +168,7 @@ contract UsdcStrategyConvex is Strategy {
 		// approve withdraw lpTokens
 		pool.safeApprove(address(zap), type(uint256).max);
 
-		// approve swap rewards to USDC
-		uint8 length = uint8(rewards.length);
-		for (uint8 i = 0; i < length; ++i) {
-			rewards[i].safeApprove(address(swap), type(uint256).max);
-		}
+		_approveSwap();
 	}
 
 	function _unapprove() internal {
@@ -180,10 +176,22 @@ contract UsdcStrategyConvex is Strategy {
 		pool.safeApprove(address(booster), 0);
 		pool.safeApprove(address(zap), 0);
 
-		// approve swap rewards to USDC
+		_unapproveSwap();
+	}
+
+	// approve swap rewards to USDC
+	function _unapproveSwap() internal {
 		uint8 length = uint8(rewards.length);
 		for (uint8 i = 0; i < length; ++i) {
 			rewards[i].safeApprove(address(swap), 0);
+		}
+	}
+
+	// approve swap rewards to USDC
+	function _approveSwap() internal {
+		uint8 length = uint8(rewards.length);
+		for (uint8 i = 0; i < length; ++i) {
+			rewards[i].safeApprove(address(swap), type(uint256).max);
 		}
 	}
 }

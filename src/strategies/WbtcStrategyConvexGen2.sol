@@ -87,9 +87,9 @@ contract WbtcStrategyConvexGen2 is Strategy {
 	///////////////////////////////////////////*/
 
 	function changeSwap(Swap _swap) external onlyOwner {
-		_unapprove();
+		_unapproveSwap();
 		swap = _swap;
-		_approve();
+		_approveSwap();
 	}
 
 	/*////////////////////////////////////////////////
@@ -170,11 +170,7 @@ contract WbtcStrategyConvexGen2 is Strategy {
 		// approve withdraw lpTokens
 		poolToken.safeApprove(address(zap), type(uint256).max);
 
-		// approve swap rewards to WBTC
-		uint8 length = uint8(rewards.length);
-		for (uint8 i = 0; i < length; ++i) {
-			rewards[i].safeApprove(address(swap), type(uint256).max);
-		}
+		_approveSwap();
 	}
 
 	function _unapprove() internal {
@@ -182,10 +178,22 @@ contract WbtcStrategyConvexGen2 is Strategy {
 		poolToken.safeApprove(address(booster), 0);
 		poolToken.safeApprove(address(zap), 0);
 
-		// approve swap rewards to WBTC
+		_unapproveSwap();
+	}
+
+	// approve swap rewards to WBTC
+	function _unapproveSwap() internal {
 		uint8 length = uint8(rewards.length);
 		for (uint8 i = 0; i < length; ++i) {
 			rewards[i].safeApprove(address(swap), 0);
+		}
+	}
+
+	// approve swap rewards to WBTC
+	function _approveSwap() internal {
+		uint8 length = uint8(rewards.length);
+		for (uint8 i = 0; i < length; ++i) {
+			rewards[i].safeApprove(address(swap), type(uint256).max);
 		}
 	}
 }
