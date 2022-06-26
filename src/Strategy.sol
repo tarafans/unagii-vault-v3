@@ -116,6 +116,10 @@ abstract contract Strategy is Ownership {
 		emit SlipChanged(_slip);
 	}
 
+	function adminHarvest() external onlyAdmins {
+		_harvest();
+	}
+
 	/*////////////////////////////
 	/      Internal Virtual      /
 	////////////////////////////*/
