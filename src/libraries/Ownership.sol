@@ -7,8 +7,9 @@ abstract contract Ownership {
 
 	address public admin;
 
-	mapping(address => bool) authorized;
+	mapping(address => bool) public authorized;
 
+	event OwnerChanged(address indexed previousOwner, address indexed newOwner);
 	event AuthAdded(address indexed newAuth);
 	event AuthRemoved(address indexed oldAuth);
 
@@ -29,6 +30,7 @@ abstract contract Ownership {
 
 	function acceptOwnership() external {
 		if (msg.sender != nominatedOwner) revert Unauthorized();
+		emit OwnerChanged(owner, msg.sender);
 		owner = msg.sender;
 		nominatedOwner = address(0);
 	}

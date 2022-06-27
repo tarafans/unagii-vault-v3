@@ -13,6 +13,7 @@ contract VaultTest is Test {
 	using FixedPointMathLib for uint256;
 
 	address u1 = address(0xAAA1);
+	address u2 = address(0xAAA2);
 
 	function setUp() public {
 		token = new MockERC20('Mock USD', 'MUSD', 6);
@@ -47,13 +48,21 @@ contract VaultTest is Test {
 	}
 
 	function testDepositAndWithdraw(uint256 amount) public {
-		vm.assume(amount > 0);
+		vm.assume(amount > 0 && amount < type(uint128).max);
 
 		deposit(u1, amount, u1);
 
 		assertEq(vault.balanceOf(u1), amount);
 		assertEq(token.balanceOf(address(vault)), amount);
 		assertEq(vault.totalAssets(), amount);
+
+		vm.startPrank(u1);
+		vault.withdraw(amount, u2, u1);
+		vm.stopPrank();
+
+		assertEq(vault.totalSupply(), 0);
+		assertEq(token.balanceOf(u2), amount);
+		assertEq(vault.totalAssets(), 0);
 	}
 
 	function testCannotDepositZero() public {

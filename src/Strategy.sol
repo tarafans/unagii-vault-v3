@@ -30,6 +30,14 @@ abstract contract Strategy is Ownership {
 	uint16 internal constant SLIP_BASIS = 10_000;
 
 	/*//////////////////
+	/      Events      /
+	//////////////////*/
+
+	event FeeChanged(uint16 newFee);
+	event SlipChanged(uint16 newSlip);
+	event TreasuryChanged(address indexed newTreasury);
+
+	/*//////////////////
 	/      Errors      /
 	//////////////////*/
 
@@ -67,7 +75,6 @@ abstract contract Strategy is Ownership {
 		received = _withdraw(_assets, _receiver);
 		received = received > _assets ? _assets : received; // received cannot > _assets for vault calculations
 
-		if (received >= _assets) return (received, 0);
 		unchecked {
 			slippage = _assets - received;
 		}
@@ -89,6 +96,13 @@ abstract contract Strategy is Ownership {
 		if (_fee > MAX_FEE) revert InvalidValue();
 		if (_fee == fee) revert AlreadyValue();
 		fee = _fee;
+		emit FeeChanged(_fee);
+	}
+
+	function setTreasury(address _treasury) external onlyOwner {
+		if (_treasury == treasury) revert AlreadyValue();
+		treasury = _treasury;
+		emit TreasuryChanged(_treasury);
 	}
 
 	/*////////////////////////////////////////////
@@ -99,6 +113,11 @@ abstract contract Strategy is Ownership {
 		if (_slip > SLIP_BASIS) revert InvalidValue();
 		if (_slip == slip) revert AlreadyValue();
 		slip = _slip;
+		emit SlipChanged(_slip);
+	}
+
+	function adminHarvest() external onlyAdmins {
+		_harvest();
 	}
 
 	/*////////////////////////////

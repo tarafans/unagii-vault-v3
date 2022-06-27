@@ -16,11 +16,11 @@ contract UsdcStrategyConvexGen2 is Strategy {
 	/// @notice contract used to swap CRV/CVX rewards to USDC
 	Swap public swap;
 
-	uint8 immutable pid;
-	IGen2MetaPool immutable pool;
-	ERC20 immutable poolToken;
-	IBaseRewardPool immutable reward;
-	IGen2DepositZap immutable zap;
+	uint8 public immutable pid;
+	IGen2MetaPool public immutable pool;
+	ERC20 public immutable poolToken;
+	IBaseRewardPool public immutable reward;
+	IGen2DepositZap public immutable zap;
 
 	/// @dev child contracts should override this if there are more rewards
 	ERC20[2] public rewards = [CRV, CVX];
@@ -87,9 +87,9 @@ contract UsdcStrategyConvexGen2 is Strategy {
 	///////////////////////////////////////////*/
 
 	function changeSwap(Swap _swap) external onlyOwner {
-		_unapprove();
+		_unapproveSwap();
 		swap = _swap;
-		_approve();
+		_approveSwap();
 	}
 
 	/*////////////////////////////////////////////////
@@ -99,6 +99,11 @@ contract UsdcStrategyConvexGen2 is Strategy {
 	function reapprove() external onlyAuthorized {
 		_unapprove();
 		_approve();
+	}
+
+	function setShouldClaimExtras(bool _shouldClaimExtras) external onlyAuthorized {
+		if (shouldClaimExtras = _shouldClaimExtras) revert AlreadyValue();
+		shouldClaimExtras = _shouldClaimExtras;
 	}
 
 	/*/////////////////////////////
@@ -111,7 +116,7 @@ contract UsdcStrategyConvexGen2 is Strategy {
 
 		uint256 amount = _assets > assets ? assets : _assets;
 
-		uint256 tokenAmount = (amount * reward.balanceOf(address(this))) / totalAssets();
+		uint256 tokenAmount = amount.mulDivDown(reward.balanceOf(address(this)), totalAssets());
 
 		if (!reward.withdrawAndUnwrap(tokenAmount, true)) revert WithdrawAndUnwrapFailed();
 
@@ -165,11 +170,7 @@ contract UsdcStrategyConvexGen2 is Strategy {
 		// approve withdraw lpTokens
 		poolToken.safeApprove(address(zap), type(uint256).max);
 
-		// approve swap rewards to USDC
-		uint8 length = uint8(rewards.length);
-		for (uint8 i = 0; i < length; ++i) {
-			rewards[i].safeApprove(address(swap), type(uint256).max);
-		}
+		_approveSwap();
 	}
 
 	function _unapprove() internal {
@@ -177,10 +178,22 @@ contract UsdcStrategyConvexGen2 is Strategy {
 		poolToken.safeApprove(address(booster), 0);
 		poolToken.safeApprove(address(zap), 0);
 
-		// approve swap rewards to USDC
+		_unapproveSwap();
+	}
+
+	// approve swap rewards to USDC
+	function _unapproveSwap() internal {
 		uint8 length = uint8(rewards.length);
 		for (uint8 i = 0; i < length; ++i) {
 			rewards[i].safeApprove(address(swap), 0);
+		}
+	}
+
+	// approve swap rewards to USDC
+	function _approveSwap() internal {
+		uint8 length = uint8(rewards.length);
+		for (uint8 i = 0; i < length; ++i) {
+			rewards[i].safeApprove(address(swap), type(uint256).max);
 		}
 	}
 }
