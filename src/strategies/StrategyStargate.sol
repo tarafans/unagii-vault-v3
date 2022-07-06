@@ -20,7 +20,7 @@ abstract contract StrategyStargate is Strategy {
 	uint256 public immutable stakingPoolId;
 	ERC20 public immutable lpToken;
 
-	/// @notice contract used to swap STG rewards to USDC
+	/// @notice contract used to swap STG rewards to asset
 	Swap public swap;
 
 	/*///////////////
@@ -141,12 +141,12 @@ abstract contract StrategyStargate is Strategy {
 		_unapproveSwap();
 	}
 
-	// approve swap rewards to USDC
+	// approve swap rewards to asset
 	function _unapproveSwap() internal {
 		STG.safeApprove(address(swap), 0);
 	}
 
-	// approve swap rewards to USDC
+	// approve swap rewards to asset
 	function _approveSwap() internal {
 		STG.safeApprove(address(swap), type(uint256).max);
 	}
