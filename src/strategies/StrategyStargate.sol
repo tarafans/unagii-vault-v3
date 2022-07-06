@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.9;
 
-import 'forge-std/console.sol';
-
 import '../external/stargate/IStargateRouter.sol';
 import '../external/stargate/ILPStaking.sol';
 import '../Swap.sol';
@@ -17,7 +15,7 @@ abstract contract StrategyStargate is Strategy {
 	ERC20 internal constant STG = ERC20(0xAf5191B0De278C7286d6C7CC6ab6BB8A73bA2Cd6);
 
 	/// @dev pid of asset in their router
-	uint256 public immutable routerPoolId;
+	uint16 public immutable routerPoolId;
 	/// @dev pid of asset in their LP staking contract
 	uint256 public immutable stakingPoolId;
 	ERC20 public immutable lpToken;
@@ -37,7 +35,7 @@ abstract contract StrategyStargate is Strategy {
 		address _treasury,
 		address[] memory _authorized,
 		Swap _swap,
-		uint256 _routerPoolId,
+		uint16 _routerPoolId,
 		uint256 _stakingPoolId
 	) Strategy(_vault, _treasury, _authorized) {
 		swap = _swap;
@@ -90,9 +88,6 @@ abstract contract StrategyStargate is Strategy {
 		// 1. withdraw from staking contract
 		staking.withdraw(stakingPoolId, amount);
 
-		console.log('Here!');
-		console.log(amount, lpToken.balanceOf(address(this)));
-
 		// withdraw from stargate router
 		received = router.instantRedeemLocal(routerPoolId, amount, _receiver);
 	}
@@ -103,6 +98,12 @@ abstract contract StrategyStargate is Strategy {
 
 		uint256 rewardBalance = STG.balanceOf(address(this));
 		if (rewardBalance == 0) revert NoRewards(); // nothing to harvest
+
+		if (fee > 0) {
+			uint256 feeAmount = _calculateFee(rewardBalance);
+			STG.safeTransfer(treasury, feeAmount);
+			rewardBalance -= feeAmount;
+		}
 
 		swap.swapTokens(address(STG), address(asset), rewardBalance, 1);
 

@@ -37,7 +37,7 @@ contract UsdcStrategyStargateTest is Test, TestHelpers {
 		swap.setRoute(
 			address(STG),
 			address(USDC),
-			Swap.RouteInfo({route: Swap.Route.UniswapV2, info: abi.encode(path)})
+			Swap.RouteInfo({route: Swap.Route.UniswapV3Direct, info: abi.encode(uint24(3_000))})
 		);
 
 		strategy = new UsdcStrategyStargate(vault, treasury, new address[](0), swap);

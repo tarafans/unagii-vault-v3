@@ -15,7 +15,7 @@ interface IStargateRouter {
 	) external;
 
 	function instantRedeemLocal(
-		uint256 _srcPoolId,
+		uint16 _srcPoolId,
 		uint256 _amountLP,
 		address _to
 	) external returns (uint256);
