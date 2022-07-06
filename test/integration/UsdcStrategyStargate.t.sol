@@ -21,18 +21,14 @@ contract UsdcStrategyStargateTest is Test, TestHelpers {
 
 	// 1 USDC
 	uint256 internal constant lowerLimit = 1e6;
-	uint256 internal constant upperLimit = 1e12;
+	// 10 million USDC
+	uint256 internal constant upperLimit = 10e12;
 
 	ERC20 constant STG = ERC20(0xAf5191B0De278C7286d6C7CC6ab6BB8A73bA2Cd6);
 
 	function setUp() public {
 		vault = new Vault(USDC, new address[](0), 0);
 		swap = new Swap();
-
-		address[] memory path = new address[](3);
-		path[0] = address(STG);
-		path[1] = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2; // WETH
-		path[2] = address(USDC);
 
 		swap.setRoute(
 			address(STG),

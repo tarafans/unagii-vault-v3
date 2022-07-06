@@ -29,6 +29,7 @@ abstract contract StrategyStargate is Strategy {
 
 	error NoRewards();
 	error NothingToInvest();
+	error BelowMinimum(uint256);
 
 	constructor(
 		Vault _vault,
@@ -81,7 +82,7 @@ abstract contract StrategyStargate is Strategy {
 
 	function _withdraw(uint256 _assets, address _receiver) internal override returns (uint256 received) {
 		uint256 assets = totalAssets();
-		if (assets == 0) return 0; // nothing to withdraw;
+		if (assets == 0) return 0; // nothing to withdraw
 
 		uint256 amount = _assets > assets ? assets : _assets;
 
@@ -90,11 +91,13 @@ abstract contract StrategyStargate is Strategy {
 
 		// withdraw from stargate router
 		received = router.instantRedeemLocal(routerPoolId, amount, _receiver);
+
+		if (received < _calculateSlippage(amount)) revert BelowMinimum(received);
 	}
 
 	function _harvest() internal override {
-		// empty deposit claims rewards withdraw as with all Goose clones
-		staking.deposit(stakingPoolId, 0);
+		// empty deposit/withdraw claims rewards withdraw as with all Goose clones
+		staking.withdraw(stakingPoolId, 0);
 
 		uint256 rewardBalance = STG.balanceOf(address(this));
 		if (rewardBalance == 0) revert NoRewards(); // nothing to harvest
@@ -117,6 +120,8 @@ abstract contract StrategyStargate is Strategy {
 		router.addLiquidity(routerPoolId, assetBalance, address(this));
 
 		uint256 balance = lpToken.balanceOf(address(this));
+
+		if (balance < _calculateSlippage(assetBalance)) revert BelowMinimum(balance);
 
 		staking.deposit(stakingPoolId, balance);
 	}
