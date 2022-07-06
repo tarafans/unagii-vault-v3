@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.9;
 
+import 'forge-std/console.sol';
+
 import 'solmate/tokens/ERC20.sol';
 import 'solmate/utils/SafeTransferLib.sol';
 import './external/uniswap/ISwapRouter02.sol';
@@ -219,6 +221,8 @@ contract Swap is Ownable {
 		bytes memory _path
 	) internal returns (uint256) {
 		address[] memory path = abi.decode(_path, (address[]));
+
+		console.log('Here in swap!');
 
 		return uniswap.swapExactTokensForTokens(_amount, _minReceived, path, msg.sender);
 	}
