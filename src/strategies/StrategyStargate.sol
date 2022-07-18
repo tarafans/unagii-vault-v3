@@ -48,6 +48,9 @@ abstract contract StrategyStargate is Strategy {
 		_approve();
 	}
 
+	// strategy receives refunds
+	receive() external payable {}
+
 	/*///////////////////////
 	/      Public View      /
 	///////////////////////*/
@@ -74,6 +77,35 @@ abstract contract StrategyStargate is Strategy {
 	function reapprove() external onlyAuthorized {
 		_unapprove();
 		_approve();
+	}
+
+	/**
+	@notice manually withdraw to vault if insufficient delta in Stargate local pool
+	@dev use router.quoteLayerZeroFee to estimate 'msg.value' (excess will be refunded)
+	@param _dstChainId chainPaths[dstChainId], call chainPathIndexLookup(uint16 withdrawFromChainId, uint256 poolId) on pool to get this
+	@param _assets amount of LP to redeem, set type(uint256).max to withdraw everything
+	@param _lzTxObj usually can just be (0, 0, "0x")
+	 */
+	function manualWithdraw(
+		uint16 _dstChainId,
+		uint256 _assets,
+		IStargateRouter.lzTxObj calldata _lzTxObj
+	) external payable onlyAuthorized {
+		uint256 assets = totalAssets();
+
+		uint256 amount = assets > _assets ? _assets : assets;
+
+		staking.withdraw(stakingPoolId, amount);
+
+		router.redeemLocal{value: msg.value}(
+			_dstChainId,
+			routerPoolId,
+			routerPoolId,
+			payable(msg.sender),
+			amount,
+			abi.encodePacked(address(vault)),
+			_lzTxObj
+		);
 	}
 
 	/*/////////////////////////////

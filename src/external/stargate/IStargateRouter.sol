@@ -21,7 +21,7 @@ interface IStargateRouter {
 	) external returns (uint256);
 
 	function redeemLocal(
-		uint256 _dstChainId,
+		uint16 _dstChainId,
 		uint256 _srcPoolId,
 		uint256 _dstPoolId,
 		address payable _refundAddress,
@@ -29,4 +29,14 @@ interface IStargateRouter {
 		bytes calldata _to,
 		lzTxObj memory _lzTxParams
 	) external payable;
+
+	function callDelta(uint256 _poolId, bool _fullMode) external;
+
+	function quoteLayerZeroFee(
+		uint16 _dstChainId,
+		uint8 _functionType,
+		bytes calldata _toAddress,
+		bytes calldata _transferAndCallPayload,
+		lzTxObj memory _lzTxParams
+	) external view returns (uint256, uint256);
 }

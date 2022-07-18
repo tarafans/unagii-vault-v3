@@ -11,7 +11,7 @@ import '../TestHelpers.sol';
 contract UsdcStrategyStargateTest is Test, TestHelpers {
 	Vault vault;
 	Swap swap;
-	Strategy strategy;
+	StrategyStargate strategy;
 
 	address constant u1 = address(0xABCD);
 	address constant treasury = address(0xAAAF);
@@ -56,6 +56,9 @@ contract UsdcStrategyStargateTest is Test, TestHelpers {
 		vault.deposit(amount, receiver);
 		vm.stopPrank();
 	}
+
+	// to receive ETH refund from redeemLocal
+	receive() external payable {}
 
 	/*/////////////////
 	/      Tests      /
@@ -102,5 +105,19 @@ contract UsdcStrategyStargateTest is Test, TestHelpers {
 
 		assertGt(strategy.totalAssets(), startingAssets);
 		assertGt(STG.balanceOf(treasury), 0);
+	}
+
+	function testManualWithdraw(uint256 amount) public {
+		vm.assume(amount >= lowerLimit && amount <= upperLimit);
+
+		depositUsdc(u1, amount, u1);
+
+		vault.report(strategy);
+
+		strategy.manualWithdraw{value: 1e18}(
+			6,
+			amount,
+			IStargateRouter.lzTxObj({dstGasForCall: 0, dstNativeAmount: 0, dstNativeAddr: abi.encodePacked(address(0))})
+		);
 	}
 }
