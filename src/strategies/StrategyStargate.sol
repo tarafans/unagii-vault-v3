@@ -82,8 +82,8 @@ abstract contract StrategyStargate is Strategy {
 	/**
 	@notice manually withdraw to vault if insufficient delta in Stargate local pool
 	@dev use router.quoteLayerZeroFee to estimate 'msg.value' (excess will be refunded)
-	@param _dstChainId chainPaths[dstChainId], call chainPathIndexLookup(uint16 withdrawFromChainId, uint256 poolId) on pool to get this
-	@param _assets amount of LP to redeem, set type(uint256).max to withdraw everything
+	@param _dstChainId STG chainId, see: https://stargateprotocol.gitbook.io/stargate/developers/contract-addresses/mainnet
+	@param _assets amount of LP to redeem, use type(uint256).max to withdraw everything
 	@param _lzTxObj usually can just be (0, 0, "0x")
 	 */
 	function manualWithdraw(
