@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.9;
 
-import 'forge-std/console.sol';
-
 import '../external/compound/IComptroller.sol';
 import '../external/compound/ICerc20.sol';
 import '../Swap.sol';

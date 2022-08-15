@@ -63,15 +63,6 @@ contract UsdcStrategyCompoundTest is Test, TestHelpers {
 		vm.stopPrank();
 	}
 
-	// some random 1 USDC transfer to update cToken.getAccountSnapShot()
-	function cTokenUpdate() public {
-		ICerc20 cTokenUSDC = ICerc20(0x39AA39c021dfbaE8faC545936693aC917d5E7563);
-		vm.startPrank(usdcWhale);
-		USDC.approve(address(cTokenUSDC), type(uint256).max);
-		cTokenUSDC.mint(1e6);
-		vm.stopPrank();
-	}
-
 	/*/////////////////
 	/      Tests      /
 	/////////////////*/
