@@ -116,4 +116,24 @@ contract UsdcStrategyCompoundTest is Test, TestHelpers {
 		assertGt(COMP.balanceOf(treasury), 0);
 		assertLe(collateralRatio, safeCol);
 	}
+
+	function testSetBufferAndRebalance() public {
+		uint256 amount = upperLimit;
+
+		depositUsdc(u1, amount, u1);
+
+		vault.report(strategy);
+
+		(, , , uint256 safeCol, uint256 collateralRatio) = strategy.getHealth();
+
+		assertEq(safeCol, 0.76 * 1e18);
+		assertLe(collateralRatio, safeCol);
+
+		strategy.setBufferAndRebalance(0.08 * 1e18);
+
+		(, , , safeCol, collateralRatio) = strategy.getHealth();
+
+		assertEq(safeCol, 0.72 * 1e18);
+		assertLe(collateralRatio, safeCol);
+	}
 }

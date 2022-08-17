@@ -14,8 +14,10 @@ abstract contract StrategyCompound is Strategy {
 	Swap public swap;
 
 	/// @notice collateral ratio buffer
-	/// @dev 1e18 = don't leverage
+	/// @dev don't leverage if buffer >= market collateral factor
 	uint256 public buffer = 0.04 * 1e18;
+	/// @notice minimum buffer to prevent strategy from being liquidated by accruing interest between rebalances
+	uint256 public constant MINIMUM_BUFFER = 0.02 * 1e18;
 
 	IComptroller private constant comptroller = IComptroller(0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B);
 	ERC20 private constant COMP = ERC20(0xc00e94Cb662C3520282E6f5717214004A7f26888);
@@ -98,14 +100,24 @@ abstract contract StrategyCompound is Strategy {
 	////////////////////////////////////////////////*/
 
 	function setBuffer(uint256 _buffer) external onlyAuthorized {
-		if (_buffer == 0 || buffer > 1e18) revert InvalidValue();
-		if (_buffer == buffer) revert AlreadyValue();
-		buffer = _buffer;
+		_setBuffer(_buffer);
+	}
+
+	function setBufferAndRebalance(uint256 _buffer) external onlyAuthorized {
+		_setBuffer(_buffer);
 		_rebalance();
 	}
 
 	function rebalance() external onlyAuthorized {
 		_rebalance();
+	}
+
+	function sweep(address _token, address _recipient) external onlyAuthorized {
+		if (_token == address(cToken)) revert InvalidValue();
+		if (_token == address(asset)) revert InvalidValue();
+		if (_token == address(COMP)) revert InvalidValue();
+
+		ERC20(_token).safeTransfer(_recipient, ERC20(_token).balanceOf(address(this)));
 	}
 
 	/*/////////////////////////////
@@ -162,6 +174,12 @@ abstract contract StrategyCompound is Strategy {
 	/*//////////////////////////////
 	/      Internal Functions      /
 	//////////////////////////////*/
+
+	function _setBuffer(uint256 _buffer) internal {
+		if (_buffer < MINIMUM_BUFFER) revert InvalidValue();
+		if (_buffer == buffer) revert AlreadyValue();
+		buffer = _buffer;
+	}
 
 	function _rebalance() internal {
 		uint256 supplied = cToken.balanceOfUnderlying(address(this));
