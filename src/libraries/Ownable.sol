@@ -6,8 +6,6 @@ abstract contract Ownable {
 	address public nominatedOwner;
 
 	error Unauthorized();
-	error AlreadyRole();
-	error NotRole();
 
 	event OwnerChanged(address indexed previousOwner, address indexed newOwner);
 
