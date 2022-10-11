@@ -36,7 +36,7 @@ contract WbtcStrategyConvexSbtc is Strategy {
 	/      Events      /
 	//////////////////*/
 
-	event Withdrawal(uint256 assets, uint256 received);
+	event Withdrawal(uint256 assets, uint256 received, address receiver);
 	event Harvest(uint256 assets);
 	event Invest(uint256 assets, uint256 assetsAfter);
 
@@ -118,7 +118,7 @@ contract WbtcStrategyConvexSbtc is Strategy {
 
 		asset.safeTransfer(_receiver, received);
 
-		emit Withdrawal(amount, received);
+		emit Withdrawal(amount, received, _receiver);
 	}
 
 	function _harvest() internal override {

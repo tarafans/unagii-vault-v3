@@ -27,7 +27,7 @@ abstract contract StrategyStargate is Strategy {
 	/      Events      /
 	//////////////////*/
 
-	event Withdrawal(uint256 assets, uint256 received);
+	event Withdrawal(uint256 assets, uint256 received, address receiver);
 	event Harvest(uint256 assets);
 	event Invest(uint256 assets, uint256 assetsAfter);
 
@@ -134,7 +134,7 @@ abstract contract StrategyStargate is Strategy {
 
 		if (received < _calculateSlippage(amount)) revert BelowMinimum(received);
 
-		emit Withdrawal(amount, received);
+		emit Withdrawal(amount, received, _receiver);
 	}
 
 	function _harvest() internal override {
