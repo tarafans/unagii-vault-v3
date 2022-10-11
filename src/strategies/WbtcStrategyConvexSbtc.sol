@@ -32,6 +32,14 @@ contract WbtcStrategyConvexSbtc is Strategy {
 	/// @dev normalize WBTC to 18 decimals + offset pool.get_virtual_price()'s 18 decimals
 	uint256 internal constant NORMALIZED_DECIMAL_OFFSET = 1e28;
 
+	/*//////////////////
+	/      Events      /
+	//////////////////*/
+
+	event Withdrawal(uint256 assets, uint256 received, address receiver);
+	event Harvest(uint256 assets);
+	event Invest(uint256 assets, uint256 assetsAfter);
+
 	/*///////////////
 	/     Errors    /
 	///////////////*/
@@ -109,6 +117,8 @@ contract WbtcStrategyConvexSbtc is Strategy {
 		}
 
 		asset.safeTransfer(_receiver, received);
+
+		emit Withdrawal(amount, received, _receiver);
 	}
 
 	function _harvest() internal override {
@@ -131,22 +141,33 @@ contract WbtcStrategyConvexSbtc is Strategy {
 			swap.swapTokens(address(rewardToken), address(asset), rewardBalance, 1);
 		}
 
-		asset.safeTransfer(address(vault), asset.balanceOf(address(this)));
+		uint256 received = asset.balanceOf(address(this));
+
+		asset.safeTransfer(address(vault), received);
+
+		emit Harvest(received);
 	}
 
 	function _invest() internal override {
 		uint256 assetBalance = asset.balanceOf(address(this));
 		if (assetBalance == 0) revert NothingToInvest();
 
-		uint256 min = _calculateSlippage(assetBalance.mulDivDown(NORMALIZED_DECIMAL_OFFSET, pool.get_virtual_price()));
+		uint256 virtualPrice = pool.get_virtual_price();
+
+		uint256 min = _calculateSlippage(assetBalance.mulDivDown(NORMALIZED_DECIMAL_OFFSET, virtualPrice));
 
 		uint256 balanceBefore = poolToken.balanceOf(address(this));
 		pool.add_liquidity([0, assetBalance, 0], min);
+
+		uint256 received;
 		unchecked {
 			// older curve pools lack return values
-			uint256 received = poolToken.balanceOf(address(this)) - balanceBefore;
+			received = poolToken.balanceOf(address(this)) - balanceBefore;
 			if (!booster.deposit(pid, received, true)) revert DepositFailed();
 		}
+
+		uint256 assetsAfter = received.mulDivDown(virtualPrice, NORMALIZED_DECIMAL_OFFSET);
+		emit Invest(assetBalance, assetsAfter);
 	}
 
 	/*//////////////////////////////

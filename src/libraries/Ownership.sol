@@ -23,6 +23,7 @@ abstract contract Ownership {
 		admin = msg.sender;
 		for (uint8 i = 0; i < _authorized.length; ++i) {
 			authorized[_authorized[i]] = true;
+			emit AuthAdded(_authorized[i]);
 		}
 	}
 
