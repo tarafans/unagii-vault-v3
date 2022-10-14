@@ -217,7 +217,6 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
 	function deposit(uint256 _assets, address _receiver) public whenNotPaused returns (uint256 shares) {
 		if ((shares = previewDeposit(_assets)) == 0) revert Zero();
-		if (_assets > _maxDeposit) revert AboveMaxDeposit();
 
 		_deposit(_assets, shares, _receiver);
 	}
@@ -233,7 +232,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		uint256 _assets,
 		address _receiver,
 		address _owner
-	) public whenNotPaused returns (uint256 shares) {
+	) public returns (uint256 shares) {
 		if (_assets == 0) revert Zero();
 		shares = previewWithdraw(_assets);
 
@@ -244,7 +243,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		uint256 _shares,
 		address _receiver,
 		address _owner
-	) public whenNotPaused returns (uint256 assets) {
+	) public returns (uint256 assets) {
 		if ((assets = previewRedeem(_shares)) == 0) revert Zero();
 
 		return _withdraw(assets, _shares, _owner, _receiver);
@@ -436,6 +435,8 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		uint256 _shares,
 		address _receiver
 	) internal {
+		if (_assets > _maxDeposit) revert AboveMaxDeposit();
+
 		asset.safeTransferFrom(msg.sender, address(this), _assets);
 		_mint(_receiver, _shares);
 		emit Deposit(msg.sender, _receiver, _assets, _shares);
