@@ -156,17 +156,12 @@ contract WbtcStrategyConvexSbtc is Strategy {
 
 		uint256 min = _calculateSlippage(assetBalance.mulDivDown(NORMALIZED_DECIMAL_OFFSET, virtualPrice));
 
-		uint256 balanceBefore = poolToken.balanceOf(address(this));
 		pool.add_liquidity([0, assetBalance, 0], min);
 
-		uint256 received;
-		unchecked {
-			// older curve pools lack return values
-			received = poolToken.balanceOf(address(this)) - balanceBefore;
-			if (!booster.deposit(pid, received, true)) revert DepositFailed();
-		}
+		uint256 poolTokens = poolToken.balanceOf(address(this));
+		if (!booster.deposit(pid, poolTokens, true)) revert DepositFailed();
 
-		uint256 assetsAfter = received.mulDivDown(virtualPrice, NORMALIZED_DECIMAL_OFFSET);
+		uint256 assetsAfter = poolTokens.mulDivDown(virtualPrice, NORMALIZED_DECIMAL_OFFSET);
 		emit Invest(assetBalance, assetsAfter);
 	}
 
