@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.9;
 
-import 'forge-std/console.sol';
-
 import '../external/stargate/Interfaces.sol';
 import '../Swap.sol';
 import '../Strategy.sol';
@@ -131,10 +129,7 @@ abstract contract StrategyStargate is Strategy {
 
 		uint256 lpAmount = convertAssetToLP(amount);
 
-		console.log(lpAmount);
-		console.log(amount);
 		(uint256 stakedBalance, ) = staking.userInfo(stakingPoolId, address(this));
-		console.log(stakedBalance);
 
 		// 1. withdraw from staking contract
 		staking.withdraw(stakingPoolId, lpAmount);
