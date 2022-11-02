@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.9;
 
-import 'ds-test/test.sol';
+import 'forge-std/Test.sol';
 import 'solmate/utils/FixedPointMathLib.sol';
 
-contract TestHelpers is DSTest {
+contract TestHelpers is Test {
 	using FixedPointMathLib for uint256;
 
 	function assertCloseTo(
