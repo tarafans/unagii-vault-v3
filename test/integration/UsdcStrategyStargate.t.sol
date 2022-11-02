@@ -72,7 +72,7 @@ contract UsdcStrategyStargateTest is Test, TestHelpers {
 		assertEq(vault.totalAssets(), amount);
 
 		vault.report(strategy);
-		assertCloseTo(strategy.totalAssets(), amount, 1); // 0.1%
+		assertVeryCloseTo(strategy.totalAssets(), amount, 1); // 0.001%
 	}
 
 	function testWithdraw(uint256 amount) public {
@@ -85,7 +85,7 @@ contract UsdcStrategyStargateTest is Test, TestHelpers {
 		vm.startPrank(u1);
 		vault.redeem(vault.balanceOf(u1), u1, u1);
 
-		assertCloseTo(USDC.balanceOf(u1), amount, 1); // 0.1%
+		assertVeryCloseTo(USDC.balanceOf(u1), amount, 1); // 0.001%
 	}
 
 	function testHarvest(uint256 amount) public {
