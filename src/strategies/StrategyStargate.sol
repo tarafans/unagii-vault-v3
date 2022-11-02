@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.9;
 
-import '../external/stargate/IStargateRouter.sol';
-import '../external/stargate/ILPStaking.sol';
+import '../external/stargate/Interfaces.sol';
 import '../Swap.sol';
 import '../Strategy.sol';
 
 abstract contract StrategyStargate is Strategy {
 	using SafeTransferLib for ERC20;
+	using SafeTransferLib for LPTokenERC20;
 	using FixedPointMathLib for uint256;
 
 	IStargateRouter internal constant router = IStargateRouter(0x8731d54E9D02c286767d56ac03e8037C07e01e98);
@@ -18,7 +18,7 @@ abstract contract StrategyStargate is Strategy {
 	uint16 public immutable routerPoolId;
 	/// @dev pid of asset in their LP staking contract
 	uint256 public immutable stakingPoolId;
-	ERC20 public immutable lpToken;
+	LPTokenERC20 public immutable lpToken;
 
 	/// @notice contract used to swap STG rewards to asset
 	Swap public swap;
@@ -51,7 +51,7 @@ abstract contract StrategyStargate is Strategy {
 		routerPoolId = _routerPoolId;
 		stakingPoolId = _stakingPoolId;
 		(address lpTokenAddress, , , ) = staking.poolInfo(stakingPoolId);
-		lpToken = ERC20(lpTokenAddress);
+		lpToken = LPTokenERC20(lpTokenAddress);
 
 		_approve();
 	}
@@ -65,7 +65,7 @@ abstract contract StrategyStargate is Strategy {
 
 	function totalAssets() public view override returns (uint256 assets) {
 		(uint256 stakedBalance, ) = staking.userInfo(stakingPoolId, address(this));
-		return stakedBalance;
+		return lpToken.amountLPtoLD(stakedBalance);
 	}
 
 	/*///////////////////////////////////////////
@@ -102,15 +102,16 @@ abstract contract StrategyStargate is Strategy {
 		uint256 assets = totalAssets();
 
 		uint256 amount = assets > _assets ? _assets : assets;
+		uint256 lpAmount = convertAssetToLP(amount);
 
-		staking.withdraw(stakingPoolId, amount);
+		staking.withdraw(stakingPoolId, lpAmount);
 
 		router.redeemLocal{value: msg.value}(
 			_dstChainId,
 			routerPoolId,
 			routerPoolId,
 			payable(msg.sender),
-			amount,
+			lpAmount,
 			abi.encodePacked(address(vault)),
 			_lzTxObj
 		);
@@ -126,11 +127,15 @@ abstract contract StrategyStargate is Strategy {
 
 		uint256 amount = _assets > assets ? assets : _assets;
 
+		uint256 lpAmount = convertAssetToLP(amount);
+
+		(uint256 stakedBalance, ) = staking.userInfo(stakingPoolId, address(this));
+
 		// 1. withdraw from staking contract
-		staking.withdraw(stakingPoolId, amount);
+		staking.withdraw(stakingPoolId, lpAmount);
 
 		// withdraw from stargate router
-		received = router.instantRedeemLocal(routerPoolId, amount, _receiver);
+		received = router.instantRedeemLocal(routerPoolId, lpAmount, _receiver);
 
 		if (received < _calculateSlippage(amount)) revert BelowMinimum(received);
 
@@ -202,5 +207,9 @@ abstract contract StrategyStargate is Strategy {
 	// approve swap rewards to asset
 	function _approveSwap() internal {
 		STG.safeApprove(address(swap), type(uint256).max);
+	}
+
+	function convertAssetToLP(uint256 _amount) internal view returns (uint256) {
+		return _amount.mulDivDown(lpToken.totalSupply(), lpToken.totalLiquidity());
 	}
 }
