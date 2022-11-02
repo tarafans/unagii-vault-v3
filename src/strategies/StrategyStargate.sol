@@ -129,8 +129,6 @@ abstract contract StrategyStargate is Strategy {
 
 		uint256 lpAmount = convertAssetToLP(amount);
 
-		(uint256 stakedBalance, ) = staking.userInfo(stakingPoolId, address(this));
-
 		// 1. withdraw from staking contract
 		staking.withdraw(stakingPoolId, lpAmount);
 
@@ -170,13 +168,14 @@ abstract contract StrategyStargate is Strategy {
 
 		router.addLiquidity(routerPoolId, assetBalance, address(this));
 
-		uint256 balance = lpToken.balanceOf(address(this));
+		uint256 lpBalance = lpToken.balanceOf(address(this));
+		uint256 balanceAfter = lpToken.amountLPtoLD(lpBalance);
 
-		if (balance < _calculateSlippage(assetBalance)) revert BelowMinimum(balance);
+		if (balanceAfter < _calculateSlippage(assetBalance)) revert BelowMinimum(balanceAfter);
 
-		staking.deposit(stakingPoolId, balance);
+		staking.deposit(stakingPoolId, lpBalance);
 
-		emit Invest(assetBalance, balance);
+		emit Invest(assetBalance, balanceAfter);
 	}
 
 	/*//////////////////////////////
