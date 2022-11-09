@@ -51,7 +51,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
 	event Report(Strategy indexed strategy, uint256 harvested, uint256 gain, uint256 loss);
 	event Lend(Strategy indexed strategy, uint256 assets, uint256 slippage);
-	event Collect(Strategy indexed strategy, address indexed receiver, uint256 received, uint256 slippage);
+	event Collect(Strategy indexed strategy, uint256 received, uint256 slippage);
 
 	event StrategyAdded(Strategy indexed strategy, uint256 debtRatio);
 	event StrategyDebtRatioChanged(Strategy indexed strategy, uint256 newDebtRatio);
@@ -508,7 +508,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		strategies[_strategy].debt -= amount;
 		totalDebt -= amount;
 
-		emit Collect(_strategy, _receiver, received, slippage);
+		if (_receiver == address(this)) emit Collect(_strategy, received, slippage);
 	}
 
 	function _harvest(Strategy _strategy) internal {
