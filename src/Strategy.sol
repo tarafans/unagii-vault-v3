@@ -80,11 +80,15 @@ abstract contract Strategy is Ownership {
 		}
 	}
 
-	function harvest() external onlyVault returns (uint256 assets) {
+	/*//////////////////////////////////////////////////
+	/      Restricted Functions: onlyAdminOrVault      /
+	//////////////////////////////////////////////////*/
+
+	function harvest() external onlyAdminOrVault returns (uint256 assets) {
 		return _harvest();
 	}
 
-	function invest() external onlyVault {
+	function invest() external onlyAdminOrVault {
 		_invest();
 	}
 
@@ -116,14 +120,6 @@ abstract contract Strategy is Ownership {
 		emit SlipChanged(_slip);
 	}
 
-	function adminHarvest() external onlyAdmins {
-		_harvest();
-	}
-
-	function adminInvest() external onlyAdmins {
-		_invest();
-	}
-
 	/*////////////////////////////
 	/      Internal Virtual      /
 	////////////////////////////*/
@@ -150,6 +146,15 @@ abstract contract Strategy is Ownership {
 
 	modifier onlyVault() {
 		if (msg.sender != address(vault)) revert NotVault();
+		_;
+	}
+
+	/*//////////////////////////////
+	/      Internal Functions      /
+	//////////////////////////////*/
+
+	modifier onlyAdminOrVault() {
+		if (msg.sender != owner && msg.sender != admin && msg.sender != address(vault)) revert Unauthorized();
 		_;
 	}
 }
