@@ -34,14 +34,6 @@ contract WethStrategyConvexStEth is Strategy {
 	/// @dev offset pool.get_virtual_price()'s 18 decimals
 	uint256 internal constant NORMALIZED_DECIMAL_OFFSET = 1e18;
 
-	/*//////////////////
-	/      Events      /
-	//////////////////*/
-
-	event Withdrawal(uint256 assets, uint256 received, address receiver);
-	event Harvest(uint256 assets);
-	event Invest(uint256 assets, uint256 assetsAfter);
-
 	/*///////////////
 	/     Errors    /
 	///////////////*/
@@ -123,11 +115,9 @@ contract WethStrategyConvexStEth is Strategy {
 		WETH(payable(address(asset))).deposit{value: received}();
 
 		asset.safeTransfer(_receiver, received);
-
-		emit Withdrawal(amount, received, _receiver);
 	}
 
-	function _harvest() internal override {
+	function _harvest() internal override returns (uint256 received) {
 		if (!reward.getReward(address(this), shouldClaimExtras)) revert ClaimRewardsFailed();
 
 		uint8 length = uint8(rewards.length);
@@ -147,11 +137,8 @@ contract WethStrategyConvexStEth is Strategy {
 			swap.swapTokens(address(rewardToken), address(asset), rewardBalance, 1);
 		}
 
-		uint256 received = asset.balanceOf(address(this));
-
+		received = asset.balanceOf(address(this));
 		asset.safeTransfer(address(vault), received);
-
-		emit Harvest(received);
 	}
 
 	function _invest() internal override {
@@ -168,9 +155,6 @@ contract WethStrategyConvexStEth is Strategy {
 
 		uint256 poolTokens = poolToken.balanceOf(address(this));
 		if (!booster.deposit(pid, poolTokens, true)) revert DepositFailed();
-
-		uint256 assetsAfter = poolTokens.mulDivDown(virtualPrice, NORMALIZED_DECIMAL_OFFSET);
-		emit Invest(assetBalance, assetsAfter);
 	}
 
 	/*//////////////////////////////
