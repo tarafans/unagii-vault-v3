@@ -121,8 +121,6 @@ abstract contract StrategyStargate is Strategy {
 
 		uint256 lpAmount = convertAssetToLP(amount);
 
-		(uint256 stakedBalance, ) = staking.userInfo(stakingPoolId, address(this));
-
 		// 1. withdraw from staking contract
 		staking.withdraw(stakingPoolId, lpAmount);
 

@@ -22,7 +22,7 @@ contract MockStrategy is Strategy {
 		asset.safeTransfer(_receiver, received);
 	}
 
-	function _harvest() internal override {}
+	function _harvest() internal override returns (uint256) {}
 
 	function _invest() internal override {}
 }
