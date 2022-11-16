@@ -155,18 +155,11 @@ abstract contract StrategyStargate is Strategy {
 
 		router.addLiquidity(routerPoolId, assetBalance, address(this));
 
-		uint256 lpBalance = lpToken.balanceOf(address(this));
-		uint256 balanceAfter = lpToken.amountLPtoLD(lpBalance);
+		uint256 balance = lpToken.balanceOf(address(this));
 
-		if (balanceAfter < _calculateSlippage(assetBalance)) revert BelowMinimum(balanceAfter);
+		if (balance < _calculateSlippage(assetBalance)) revert BelowMinimum(balance);
 
-<<<<<<< HEAD
-		staking.deposit(stakingPoolId, lpBalance);
-
-		emit Invest(assetBalance, balanceAfter);
-=======
 		staking.deposit(stakingPoolId, balance);
->>>>>>> main
 	}
 
 	/*//////////////////////////////
