@@ -146,7 +146,7 @@ abstract contract StrategyCompound is Strategy {
 		asset.safeTransfer(_receiver, amount);
 	}
 
-	function _harvest() internal override {
+	function _harvest() internal override returns (uint256 received) {
 		address[] memory cTokens = new address[](1);
 		cTokens[0] = address(cToken);
 		comptroller.claimComp(address(this), cTokens);
@@ -161,7 +161,9 @@ abstract contract StrategyCompound is Strategy {
 		}
 
 		swap.swapTokens(address(COMP), address(asset), compBal, 1);
-		asset.safeTransfer(address(vault), asset.balanceOf(address(this)));
+
+		received = asset.balanceOf(address(this));
+		asset.safeTransfer(address(vault), received);
 	}
 
 	function _invest() internal override {
