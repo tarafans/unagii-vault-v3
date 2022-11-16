@@ -23,14 +23,6 @@ abstract contract StrategyStargate is Strategy {
 	/// @notice contract used to swap STG rewards to asset
 	Swap public swap;
 
-	/*//////////////////
-	/      Events      /
-	//////////////////*/
-
-	event Withdrawal(uint256 assets, uint256 received, address receiver);
-	event Harvest(uint256 assets);
-	event Invest(uint256 assets, uint256 assetsAfter);
-
 	/*///////////////
 	/     Errors    /
 	///////////////*/
@@ -138,11 +130,9 @@ abstract contract StrategyStargate is Strategy {
 		received = router.instantRedeemLocal(routerPoolId, lpAmount, _receiver);
 
 		if (received < _calculateSlippage(amount)) revert BelowMinimum(received);
-
-		emit Withdrawal(amount, received, _receiver);
 	}
 
-	function _harvest() internal override {
+	function _harvest() internal override returns (uint256 received) {
 		// empty deposit/withdraw claims rewards withdraw as with all Goose clones
 		staking.withdraw(stakingPoolId, 0);
 
@@ -157,11 +147,8 @@ abstract contract StrategyStargate is Strategy {
 
 		swap.swapTokens(address(STG), address(asset), rewardBalance, 1);
 
-		uint256 received = asset.balanceOf(address(this));
-
+		received = asset.balanceOf(address(this));
 		asset.safeTransfer(address(vault), received);
-
-		emit Harvest(received);
 	}
 
 	function _invest() internal override {
@@ -175,8 +162,6 @@ abstract contract StrategyStargate is Strategy {
 		if (balance < _calculateSlippage(assetBalance)) revert BelowMinimum(balance);
 
 		staking.deposit(stakingPoolId, balance);
-
-		emit Invest(assetBalance, balance);
 	}
 
 	/*//////////////////////////////

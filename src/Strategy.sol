@@ -80,8 +80,8 @@ abstract contract Strategy is Ownership {
 		}
 	}
 
-	function harvest() external onlyVault {
-		_harvest();
+	function harvest() external onlyVault returns (uint256 assets) {
+		return _harvest();
 	}
 
 	function invest() external onlyVault {
@@ -120,6 +120,10 @@ abstract contract Strategy is Ownership {
 		_harvest();
 	}
 
+	function adminInvest() external onlyAdmins {
+		_invest();
+	}
+
 	/*////////////////////////////
 	/      Internal Virtual      /
 	////////////////////////////*/
@@ -127,7 +131,8 @@ abstract contract Strategy is Ownership {
 	/// @dev this must handle overflow, i.e. vault trying to withdraw more than what strategy has
 	function _withdraw(uint256 _assets, address _receiver) internal virtual returns (uint256 received);
 
-	function _harvest() internal virtual;
+	/// @dev return harvested assets
+	function _harvest() internal virtual returns (uint256 received);
 
 	function _invest() internal virtual;
 

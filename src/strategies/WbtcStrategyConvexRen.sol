@@ -111,7 +111,7 @@ contract WbtcStrategyConvexRen is Strategy {
 		asset.safeTransfer(_receiver, received);
 	}
 
-	function _harvest() internal override {
+	function _harvest() internal override returns (uint256 received) {
 		if (!reward.getReward(address(this), shouldClaimExtras)) revert ClaimRewardsFailed();
 
 		uint8 length = uint8(rewards.length);
@@ -131,7 +131,8 @@ contract WbtcStrategyConvexRen is Strategy {
 			swap.swapTokens(address(rewardToken), address(asset), rewardBalance, 1);
 		}
 
-		asset.safeTransfer(address(vault), asset.balanceOf(address(this)));
+		received = asset.balanceOf(address(this));
+		asset.safeTransfer(address(vault), received);
 	}
 
 	function _invest() internal override {

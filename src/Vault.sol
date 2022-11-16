@@ -49,7 +49,9 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	/      Events      /
 	//////////////////*/
 
-	event Report(Strategy indexed strategy, uint256 gain, uint256 loss);
+	event Report(Strategy indexed strategy, uint256 harvested, uint256 gain, uint256 loss);
+	event Lend(Strategy indexed strategy, uint256 assets, uint256 slippage);
+	event Collect(Strategy indexed strategy, uint256 received, uint256 slippage);
 
 	event StrategyAdded(Strategy indexed strategy, uint256 debtRatio);
 	event StrategyDebtRatioChanged(Strategy indexed strategy, uint256 newDebtRatio);
@@ -364,9 +366,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	function harvestAll() external onlyAuthorized updateLastReport {
 		uint8 length = uint8(_queue.length);
 		for (uint8 i = 0; i < length; ++i) {
-			Strategy strategy = _queue[i];
-			strategy.harvest();
-			_report(strategy);
+			_harvest(_queue[i]);
 		}
 	}
 
@@ -374,21 +374,20 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	function reportAll() external onlyAuthorized updateLastReport {
 		uint8 length = uint8(_queue.length);
 		for (uint8 i = 0; i < length; ++i) {
-			_report(_queue[i]);
+			_report(_queue[i], 0);
 		}
 	}
 
 	function harvest(Strategy _strategy) external onlyAuthorized updateLastReport {
 		if (!strategies[_strategy].added) revert NotStrategy();
 
-		_strategy.harvest();
-		_report(_strategy);
+		_harvest(_strategy);
 	}
 
 	function report(Strategy _strategy) external onlyAuthorized updateLastReport {
 		if (!strategies[_strategy].added) revert NotStrategy();
 
-		_report(_strategy);
+		_report(_strategy, 0);
 	}
 
 	/*///////////////////////////////////////////
@@ -484,8 +483,14 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		asset.safeTransfer(address(_strategy), amount);
 		_strategy.invest();
 
-		strategies[_strategy].debt += amount;
-		totalDebt += amount;
+		uint256 debtBefore = strategies[_strategy].debt;
+		uint256 debtAfter = _strategy.totalAssets();
+
+		uint256 slippage = debtBefore > debtAfter ? debtBefore - debtAfter : 0;
+
+		totalDebt += amount - slippage;
+
+		emit Lend(_strategy, amount, slippage);
 	}
 
 	/// @dev overflow is handled by strategy
@@ -502,9 +507,15 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
 		strategies[_strategy].debt -= amount;
 		totalDebt -= amount;
+
+		if (_receiver == address(this)) emit Collect(_strategy, received, slippage);
 	}
 
-	function _report(Strategy _strategy) internal {
+	function _harvest(Strategy _strategy) internal {
+		_report(_strategy, _strategy.harvest());
+	}
+
+	function _report(Strategy _strategy, uint256 _harvested) internal {
 		uint256 assets = _strategy.totalAssets();
 		uint256 debt = strategies[_strategy].debt;
 
@@ -513,20 +524,21 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		uint256 gain;
 		uint256 loss;
 
+		uint256 lockedProfitBefore = lockedProfit();
+
 		if (assets > debt) {
 			unchecked {
 				gain = assets - debt;
 			}
 			totalDebt += gain;
 
-			_lockedProfit = lockedProfit() + gain;
+			_lockedProfit = lockedProfitBefore + gain + _harvested;
 		} else if (debt > assets) {
 			unchecked {
 				loss = debt - assets;
 				totalDebt -= loss;
 
-				uint256 lockedProfitBeforeLoss = lockedProfit();
-				_lockedProfit = lockedProfitBeforeLoss > loss ? lockedProfitBeforeLoss - loss : 0;
+				_lockedProfit = lockedProfitBefore + _harvested > loss ? lockedProfitBefore + _harvested - loss : 0;
 			}
 		}
 
@@ -537,7 +549,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		if (possibleDebt > assets) _lend(_strategy, possibleDebt - assets);
 		else if (assets > possibleDebt) _collect(_strategy, assets - possibleDebt, address(this));
 
-		emit Report(_strategy, gain, loss);
+		emit Report(_strategy, _harvested, gain, loss);
 	}
 
 	function _setDebtRatio(Strategy _strategy, uint256 _newDebtRatio) internal {
