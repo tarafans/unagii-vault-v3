@@ -485,6 +485,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
 		uint256 debtBefore = strategies[_strategy].debt;
 		uint256 debtAfter = _strategy.totalAssets();
+		strategies[_strategy].debt = debtAfter;
 
 		uint256 slippage = debtBefore > debtAfter ? debtBefore - debtAfter : 0;
 
