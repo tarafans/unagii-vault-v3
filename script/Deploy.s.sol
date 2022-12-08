@@ -7,6 +7,7 @@ import 'forge-std/Script.sol';
 import 'src/strategies/UsdcStrategyStargate.sol';
 import 'src/strategies/WethStrategyConvexStEth.sol';
 import 'src/strategies/WbtcStrategyConvexSbtc.sol';
+import 'src/zaps/WethZap.sol';
 
 contract Deploy is Script {
 	Swap swap = Swap(vm.envAddress('SWAP_ADDRESS'));
@@ -29,6 +30,7 @@ contract Deploy is Script {
 		Vault wethVault = new Vault(WETH9, authorized, delay);
 		WethStrategyConvexStEth wethStrategy = new WethStrategyConvexStEth(wethVault, treasury, authorized, swap);
 		wethVault.addStrategy(wethStrategy, 100);
+		new WethZap(wethVault);
 
 		Vault wbtcVault = new Vault(WBTC, authorized, delay);
 		WbtcStrategyConvexSbtc wbtcStrategy = new WbtcStrategyConvexSbtc(wbtcVault, treasury, authorized, swap);
