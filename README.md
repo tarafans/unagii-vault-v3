@@ -29,3 +29,10 @@ make unit # run only vault unit tests
 # use args='...' to pass extra arguments, e.g.:
 make test args='--match-path test/integration/UsdcVault.t.sol -vvv'
 ```
+
+### Deploy Script
+
+```shell
+source .env
+forge script script/Deploy.s.sol:Deploy --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast --verify --etherscan-api-key $ETHERSCAN_API_KEY
+```
