@@ -280,6 +280,10 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		if (strategies[_strategy].debt > 0) {
 			(uint256 received, ) = _collect(_strategy, type(uint256).max, address(this));
 			if (received < _minReceived) revert BelowMinimum(received);
+
+			// forgive all remaining debt when removing a strategy
+			uint256 remainingDebt = strategies[_strategy].debt;
+			if (remainingDebt > 0) totalDebt -= remainingDebt;
 		}
 
 		// reorganize queue, filling in the empty strategy
@@ -502,9 +506,11 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	) internal returns (uint256 received, uint256 slippage) {
 		(received, slippage) = _strategy.withdraw(_assets, _receiver);
 
+		uint256 total = received + slippage;
+
 		uint256 debt = strategies[_strategy].debt;
 
-		uint256 amount = debt > received ? received : debt;
+		uint256 amount = debt > total ? received : total;
 
 		strategies[_strategy].debt -= amount;
 		totalDebt -= amount;
