@@ -506,9 +506,11 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	) internal returns (uint256 received, uint256 slippage) {
 		(received, slippage) = _strategy.withdraw(_assets, _receiver);
 
+		uint256 total = received + slippage;
+
 		uint256 debt = strategies[_strategy].debt;
 
-		uint256 amount = debt > received ? received : debt;
+		uint256 amount = debt > total ? received : total;
 
 		strategies[_strategy].debt -= amount;
 		totalDebt -= amount;
