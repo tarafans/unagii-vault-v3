@@ -97,8 +97,7 @@ contract WethStrategyConvexStEthTest is TestHelpers {
 
 		vault.harvest(strategy);
 
-		// slippage due to our ETH deposit skewing the ETH-stETH ratio + curve's time-weighted coefficient. in the real
-		// world arbitrage will rebalance the pool
+		// slippage due to our ETH deposit skewing the ETH-stETH ratio + curve's time-weighted coefficient. in the real world arbitrage will rebalance the pool
 		assertCloseTo(strategy.totalAssets(), startingAssets, 5); // 0.5%
 		assertGt(CRV.balanceOf(treasury), 0);
 		assertGt(CVX.balanceOf(treasury), 0);

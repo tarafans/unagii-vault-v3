@@ -485,6 +485,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		}
 	}
 
+	/// @dev do not touch debt outside of _lend(), _collect() and _report()
 	function _lend(Strategy _strategy, uint256 _assets) internal {
 		uint256 balance = asset.balanceOf(address(this));
 		uint256 amount = _assets > balance ? balance : _assets;
@@ -506,7 +507,8 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		emit Lend(_strategy, amount, slippage);
 	}
 
-	/// @dev overflow is handled by strategy
+	/// @dev overflow is handled in Strategy.sol
+	/// @dev do not touch debt outside of _lend(), _collect() and _report()
 	function _collect(
 		Strategy _strategy,
 		uint256 _assets,
@@ -530,6 +532,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		_report(_strategy, _strategy.harvest());
 	}
 
+	/// @dev do not touch debt outside of _lend(), _collect() and _report()
 	function _report(Strategy _strategy, uint256 _harvested) internal {
 		uint256 assets = _strategy.totalAssets();
 		uint256 debt = strategies[_strategy].debt;
