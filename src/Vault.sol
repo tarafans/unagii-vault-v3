@@ -273,18 +273,23 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	/      Restricted Functions: onlyAdmins      /
 	////////////////////////////////////////////*/
 
-	function removeStrategy(Strategy _strategy, uint256 _minReceived) external onlyAdmins {
+	function removeStrategy(
+		Strategy _strategy,
+		bool _shouldHarvest,
+		uint256 _minReceived
+	) external onlyAdmins returns (uint256 received) {
 		if (!strategies[_strategy].added) revert NotStrategy();
-		totalDebtRatio -= strategies[_strategy].debtRatio;
 
-		if (strategies[_strategy].debt > 0) {
-			(uint256 received, ) = _collect(_strategy, type(uint256).max, address(this));
-			if (received < _minReceived) revert BelowMinimum(received);
+		_setDebtRatio(_strategy, 0);
 
-			// forgive all remaining debt when removing a strategy
-			uint256 remainingDebt = strategies[_strategy].debt;
-			if (remainingDebt > 0) totalDebt -= remainingDebt;
-		}
+		uint256 balanceBefore = asset.balanceOf(address(this));
+
+		if (_shouldHarvest) _harvest(_strategy);
+		else _report(_strategy, 0);
+
+		received = asset.balanceOf(address(this)) - balanceBefore;
+
+		if (received < _minReceived) revert BelowMinimum(received);
 
 		// reorganize queue, filling in the empty strategy
 		Strategy[] memory newQueue = new Strategy[](_queue.length - 1);
