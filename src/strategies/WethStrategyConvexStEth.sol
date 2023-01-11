@@ -96,17 +96,12 @@ contract WethStrategyConvexStEth is Strategy {
 	/////////////////////////////*/
 
 	function _withdraw(uint256 _assets, address _receiver) internal override returns (uint256 received) {
-		uint256 assets = totalAssets();
-		if (assets == 0) return 0; // nothing to withdraw
-
-		uint256 amount = _assets > assets ? assets : _assets;
-
-		uint256 tokenAmount = amount.mulDivDown(reward.balanceOf(address(this)), totalAssets());
+		uint256 tokenAmount = _assets.mulDivDown(reward.balanceOf(address(this)), totalAssets());
 
 		if (!reward.withdrawAndUnwrap(tokenAmount, true)) revert WithdrawAndUnwrapFailed();
 
 		uint256 balanceBefore = address(this).balance;
-		pool.remove_liquidity_one_coin(tokenAmount, INDEX_OF_ASSET, _calculateSlippage(amount));
+		pool.remove_liquidity_one_coin(tokenAmount, INDEX_OF_ASSET, _calculateSlippage(_assets));
 		unchecked {
 			// older curve pools lack return values
 			received = address(this).balance - balanceBefore;

@@ -72,11 +72,17 @@ abstract contract Strategy is Ownership {
 		onlyVault
 		returns (uint256 received, uint256 slippage)
 	{
-		received = _withdraw(_assets, _receiver);
+		uint256 total = totalAssets();
+		if (total == 0) revert Zero();
+
+		uint256 assets = _assets > total ? total : _assets;
+
+		received = _withdraw(assets, _receiver);
+
 		received = received > _assets ? _assets : received; // received cannot > _assets for vault calculations
 
 		unchecked {
-			slippage = _assets - received;
+			slippage = assets - received;
 		}
 	}
 
@@ -124,7 +130,6 @@ abstract contract Strategy is Ownership {
 	/      Internal Virtual      /
 	////////////////////////////*/
 
-	/// @dev this must handle overflow, i.e. vault trying to withdraw more than what strategy has
 	function _withdraw(uint256 _assets, address _receiver) internal virtual returns (uint256 received);
 
 	/// @dev return harvested assets

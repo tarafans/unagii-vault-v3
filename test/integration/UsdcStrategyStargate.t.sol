@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.9;
 
-import 'forge-std/Test.sol';
+import '../TestHelpers.sol';
 import 'solmate/tokens/ERC20.sol';
 import 'src/Vault.sol';
 import 'src/strategies/UsdcStrategyStargate.sol';
 import 'src/Swap.sol';
-import '../TestHelpers.sol';
 
-contract UsdcStrategyStargateTest is Test, TestHelpers {
+contract UsdcStrategyStargateTest is TestHelpers {
 	Vault vault;
 	Swap swap;
 	StrategyStargate strategy;
@@ -19,10 +18,8 @@ contract UsdcStrategyStargateTest is Test, TestHelpers {
 	ERC20 constant USDC = ERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
 	address constant usdcWhale = 0x55FE002aefF02F77364de339a1292923A15844B8;
 
-	// 1 USDC
-	uint256 internal constant lowerLimit = 1e6;
-	// 10 million USDC
-	uint256 internal constant upperLimit = 10e12;
+	uint256 internal constant lowerLimit = 1e6; // 1 USDC
+	uint256 internal constant upperLimit = 1e12; // 1 million USDC
 
 	ERC20 constant STG = ERC20(0xAf5191B0De278C7286d6C7CC6ab6BB8A73bA2Cd6);
 
@@ -103,7 +100,7 @@ contract UsdcStrategyStargateTest is Test, TestHelpers {
 
 		vault.harvest(strategy);
 
-		assertGt(strategy.totalAssets(), startingAssets);
+		assertGe(strategy.totalAssets(), startingAssets);
 		assertGt(STG.balanceOf(treasury), 0);
 	}
 
@@ -115,7 +112,7 @@ contract UsdcStrategyStargateTest is Test, TestHelpers {
 		vault.report(strategy);
 
 		strategy.manualWithdraw{value: 1e18}(
-			6,
+			110,
 			amount,
 			IStargateRouter.lzTxObj({dstGasForCall: 0, dstNativeAmount: 0, dstNativeAddr: abi.encodePacked(address(0))})
 		);

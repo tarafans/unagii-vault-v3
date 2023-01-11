@@ -16,10 +16,8 @@ contract MockStrategy is Strategy {
 	}
 
 	function _withdraw(uint256 _assets, address _receiver) internal override returns (uint256 received) {
-		uint256 total = totalAssets();
-		received = _assets > total ? total : _assets;
-
-		asset.safeTransfer(_receiver, received);
+		asset.safeTransfer(_receiver, _assets);
+		return _assets;
 	}
 
 	function _harvest() internal override returns (uint256) {}
