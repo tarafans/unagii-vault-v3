@@ -152,4 +152,25 @@ contract VaultTest is Test {
 		(bool added, , ) = vault.strategies(s1);
 		assertFalse(added);
 	}
+
+	event Lend(Strategy indexed strategy, uint256 assets, uint256 slippage);
+
+	function testSlippageOnInvest() public {
+		uint256 amount = 100e18;
+		uint256 slippage = 1e18;
+
+		MockStrategy s1 = new MockStrategy(vault);
+		vault.addStrategy(s1, 100);
+
+		s1.setSlippageOnNextInvest(slippage);
+
+		token.mint(address(vault), amount);
+
+		vm.expectEmit(true, true, true, true);
+		emit Lend(s1, amount, slippage);
+
+		vault.report(s1);
+
+		assertEq(vault.totalAssets(), amount - slippage);
+	}
 }
