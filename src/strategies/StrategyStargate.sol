@@ -82,7 +82,7 @@ abstract contract StrategyStargate is Strategy {
 	/**
 	@notice manually withdraw to vault if insufficient delta in Stargate local pool
 	@dev use router.quoteLayerZeroFee to estimate 'msg.value' (excess will be refunded)
-	@param _dstChainId STG chainId, see: https://stargateprotocol.gitbook.io/stargate/developers/contract-addresses/mainnet
+	@param _dstChainId STG chainId, see https://stargateprotocol.gitbook.io/stargate/developers/contract-addresses/mainnet, ideally we want to use the chain with cheapest gas
 	@param _assets amount of LP to redeem, use type(uint256).max to withdraw everything
 	@param _lzTxObj usually can just be (0, 0, "0x")
 	 */
@@ -114,12 +114,7 @@ abstract contract StrategyStargate is Strategy {
 	/////////////////////////////*/
 
 	function _withdraw(uint256 _assets, address _receiver) internal override returns (uint256 received) {
-		uint256 assets = totalAssets();
-		if (assets == 0) return 0; // nothing to withdraw
-
-		uint256 amount = _assets > assets ? assets : _assets;
-
-		uint256 lpAmount = convertAssetToLP(amount);
+		uint256 lpAmount = convertAssetToLP(_assets);
 
 		// 1. withdraw from staking contract
 		staking.withdraw(stakingPoolId, lpAmount);
@@ -127,7 +122,7 @@ abstract contract StrategyStargate is Strategy {
 		// withdraw from stargate router
 		received = router.instantRedeemLocal(routerPoolId, lpAmount, _receiver);
 
-		if (received < _calculateSlippage(amount)) revert BelowMinimum(received);
+		if (received < _calculateSlippage(_assets)) revert BelowMinimum(received);
 	}
 
 	function _harvest() internal override returns (uint256 received) {

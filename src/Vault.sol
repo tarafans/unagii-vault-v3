@@ -273,18 +273,23 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	/      Restricted Functions: onlyAdmins      /
 	////////////////////////////////////////////*/
 
-	function removeStrategy(Strategy _strategy, uint256 _minReceived) external onlyAdmins {
+	function removeStrategy(
+		Strategy _strategy,
+		bool _shouldHarvest,
+		uint256 _minReceived
+	) external onlyAdmins returns (uint256 received) {
 		if (!strategies[_strategy].added) revert NotStrategy();
-		totalDebtRatio -= strategies[_strategy].debtRatio;
 
-		if (strategies[_strategy].debt > 0) {
-			(uint256 received, ) = _collect(_strategy, type(uint256).max, address(this));
-			if (received < _minReceived) revert BelowMinimum(received);
+		_setDebtRatio(_strategy, 0);
 
-			// forgive all remaining debt when removing a strategy
-			uint256 remainingDebt = strategies[_strategy].debt;
-			if (remainingDebt > 0) totalDebt -= remainingDebt;
-		}
+		uint256 balanceBefore = asset.balanceOf(address(this));
+
+		if (_shouldHarvest) _harvest(_strategy);
+		else _report(_strategy, 0);
+
+		received = asset.balanceOf(address(this)) - balanceBefore;
+
+		if (received < _minReceived) revert BelowMinimum(received);
 
 		// reorganize queue, filling in the empty strategy
 		Strategy[] memory newQueue = new Strategy[](_queue.length - 1);
@@ -480,6 +485,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		}
 	}
 
+	/// @dev do not touch debt outside of _lend(), _collect() and _report()
 	function _lend(Strategy _strategy, uint256 _assets) internal {
 		uint256 balance = asset.balanceOf(address(this));
 		uint256 amount = _assets > balance ? balance : _assets;
@@ -489,16 +495,20 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
 		uint256 debtBefore = strategies[_strategy].debt;
 		uint256 debtAfter = _strategy.totalAssets();
+
 		strategies[_strategy].debt = debtAfter;
 
-		uint256 slippage = debtBefore > debtAfter ? debtBefore - debtAfter : 0;
+		uint256 diff = debtAfter - debtBefore;
 
-		totalDebt += amount - slippage;
+		uint256 slippage = amount > diff ? amount - diff : 0;
+
+		totalDebt += diff;
 
 		emit Lend(_strategy, amount, slippage);
 	}
 
-	/// @dev overflow is handled by strategy
+	/// @dev overflow is handled in Strategy.sol
+	/// @dev do not touch debt outside of _lend(), _collect() and _report()
 	function _collect(
 		Strategy _strategy,
 		uint256 _assets,
@@ -522,6 +532,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		_report(_strategy, _strategy.harvest());
 	}
 
+	/// @dev do not touch debt outside of _lend(), _collect() and _report()
 	function _report(Strategy _strategy, uint256 _harvested) internal {
 		uint256 assets = _strategy.totalAssets();
 		uint256 debt = strategies[_strategy].debt;

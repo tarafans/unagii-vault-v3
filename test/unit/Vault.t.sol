@@ -8,9 +8,10 @@ import '../mocks/MockERC20.sol';
 import '../mocks/MockStrategy.sol';
 
 contract VaultTest is Test {
+	using FixedPointMathLib for uint256;
+
 	MockERC20 token;
 	Vault vault;
-	using FixedPointMathLib for uint256;
 
 	address u1 = address(0xAAA1);
 	address u2 = address(0xAAA2);
@@ -144,12 +145,76 @@ contract VaultTest is Test {
 		token.mint(address(vault), amount);
 		vault.report(s1);
 
-		vault.removeStrategy(s1, 0);
+		vault.removeStrategy(s1, false, 0);
 
 		assertEq(vault.queue().length, 0);
 		assertEq(vault.totalAssets(), amount);
 
 		(bool added, , ) = vault.strategies(s1);
 		assertFalse(added);
+	}
+
+	event Report(Strategy indexed strategy, uint256 harvested, uint256 gain, uint256 loss);
+
+	function testReportLoss() public {
+		uint256 amount = 100e18;
+		uint256 loss = 1e18;
+
+		Strategy s1 = new MockStrategy(vault);
+		vault.addStrategy(s1, 100);
+
+		token.mint(address(vault), amount);
+		vault.report(s1);
+
+		token.burn(address(s1), loss);
+
+		vm.expectEmit(true, true, true, true);
+		emit Report(s1, 0, 0, loss);
+
+		vault.report(s1);
+
+		assertEq(vault.totalAssets(), amount - loss);
+	}
+
+	event Lend(Strategy indexed strategy, uint256 assets, uint256 slippage);
+
+	function testLendSlippage() public {
+		uint256 amount = 100e18;
+		uint256 slippage = 1e18;
+
+		MockStrategy s1 = new MockStrategy(vault);
+		vault.addStrategy(s1, 100);
+
+		s1.setSlippageOnNextInvest(slippage);
+
+		token.mint(address(vault), amount);
+
+		vm.expectEmit(true, true, true, true);
+		emit Lend(s1, amount, slippage);
+
+		vault.report(s1);
+
+		assertEq(vault.totalAssets(), amount - slippage);
+	}
+
+	event Collect(Strategy indexed strategy, uint256 received, uint256 slippage);
+
+	function testCollectSlippage() public {
+		uint256 amount = 100e18;
+		uint256 slippage = 1e18;
+
+		MockStrategy s1 = new MockStrategy(vault);
+		vault.addStrategy(s1, 100);
+		token.mint(address(vault), amount);
+		vault.report(s1);
+
+		s1.setSlippageOnNextWithdraw(slippage);
+
+		vm.expectEmit(true, true, true, true);
+		emit Collect(s1, amount - slippage, slippage);
+
+		vault.removeStrategy(s1, false, 0);
+
+		assertEq(vault.totalAssets(), amount - slippage);
 	}
 }
