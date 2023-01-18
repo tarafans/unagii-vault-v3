@@ -10,9 +10,10 @@ import './MockERC20.sol';
 contract MockStrategy is Strategy {
 	using SafeTransferLib for ERC20;
 
-	// to simulate slippage
+	// to simulate slippage and bonuses
 	uint256 slippageOnNextInvest;
 	uint256 slippageOnNextWithdraw;
+	uint256 bonusOnNextWithdraw;
 
 	constructor(Vault _vault) Strategy(_vault, address(0), new address[](0)) {}
 
@@ -28,17 +29,32 @@ contract MockStrategy is Strategy {
 		slippageOnNextWithdraw = _slippage;
 	}
 
-	function _withdraw(uint256 _assets, address _receiver) internal override returns (uint256 received) {
+	function setBonusOnNextWithdraw(uint256 _bonus) external {
+		bonusOnNextWithdraw = _bonus;
+	}
+
+	function _withdraw(uint256 _assets) internal override returns (uint256 received) {
 		uint256 amount = _assets;
 
 		if (slippageOnNextWithdraw > 0) {
 			amount -= slippageOnNextWithdraw;
 
 			MockERC20 mockAsset = MockERC20(address(asset));
-			mockAsset.burn(address(this), slippageOnNextInvest);
+			mockAsset.burn(address(this), slippageOnNextWithdraw);
+
+			slippageOnNextWithdraw = 0;
 		}
 
-		asset.safeTransfer(_receiver, amount);
+		if (bonusOnNextWithdraw > 0) {
+			amount += bonusOnNextWithdraw;
+
+			MockERC20 mockAsset = MockERC20(address(asset));
+			mockAsset.mint(address(this), bonusOnNextWithdraw);
+
+			bonusOnNextWithdraw = 0;
+		}
+
+		asset.safeTransfer(address(vault), amount);
 		return amount;
 	}
 

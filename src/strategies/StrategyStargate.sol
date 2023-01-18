@@ -113,14 +113,14 @@ abstract contract StrategyStargate is Strategy {
 	/      Internal Override      /
 	/////////////////////////////*/
 
-	function _withdraw(uint256 _assets, address _receiver) internal override returns (uint256 received) {
+	function _withdraw(uint256 _assets) internal override returns (uint256 received) {
 		uint256 lpAmount = convertAssetToLP(_assets);
 
 		// 1. withdraw from staking contract
 		staking.withdraw(stakingPoolId, lpAmount);
 
 		// withdraw from stargate router
-		received = router.instantRedeemLocal(routerPoolId, lpAmount, _receiver);
+		received = router.instantRedeemLocal(routerPoolId, lpAmount, address(vault));
 
 		if (received < _calculateSlippage(_assets)) revert BelowMinimum(received);
 	}

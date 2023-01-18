@@ -197,7 +197,7 @@ contract VaultTest is Test {
 		assertEq(vault.totalAssets(), amount - slippage);
 	}
 
-	event Collect(Strategy indexed strategy, uint256 received, uint256 slippage);
+	event Collect(Strategy indexed strategy, uint256 received, uint256 slippage, uint256 bonus);
 
 	function testCollectSlippage() public {
 		uint256 amount = 100e18;
@@ -211,10 +211,30 @@ contract VaultTest is Test {
 		s1.setSlippageOnNextWithdraw(slippage);
 
 		vm.expectEmit(true, true, true, true);
-		emit Collect(s1, amount - slippage, slippage);
+		emit Collect(s1, amount - slippage, slippage, 0);
 
 		vault.removeStrategy(s1, false, 0);
 
 		assertEq(vault.totalAssets(), amount - slippage);
+	}
+
+	function testCollectBonus() public {
+		uint256 amount = 100e18;
+		uint256 bonus = 1e18;
+
+		MockStrategy s1 = new MockStrategy(vault);
+		vault.addStrategy(s1, 100);
+
+		deposit(u1, amount, u1);
+		vault.report(s1);
+
+		s1.setBonusOnNextWithdraw(bonus);
+
+		vm.startPrank(u1);
+		vault.withdraw(amount, u1, u1);
+		vm.stopPrank();
+
+		assertEq(token.balanceOf(u1), amount);
+		assertEq(vault.totalAssets(), bonus);
 	}
 }
