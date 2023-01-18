@@ -95,7 +95,7 @@ contract WethStrategyConvexStEth is Strategy {
 	/      Internal Override      /
 	/////////////////////////////*/
 
-	function _withdraw(uint256 _assets, address _receiver) internal override returns (uint256 received) {
+	function _withdraw(uint256 _assets) internal override returns (uint256 received) {
 		uint256 tokenAmount = _assets.mulDivDown(reward.balanceOf(address(this)), totalAssets());
 
 		if (!reward.withdrawAndUnwrap(tokenAmount, true)) revert WithdrawAndUnwrapFailed();
@@ -109,7 +109,7 @@ contract WethStrategyConvexStEth is Strategy {
 
 		WETH(payable(address(asset))).deposit{value: received}();
 
-		asset.safeTransfer(_receiver, received);
+		asset.safeTransfer(address(vault), received);
 	}
 
 	function _harvest() internal override returns (uint256 received) {

@@ -51,7 +51,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
 	event Report(Strategy indexed strategy, uint256 harvested, uint256 gain, uint256 loss);
 	event Lend(Strategy indexed strategy, uint256 assets, uint256 slippage);
-	event Collect(Strategy indexed strategy, uint256 received, uint256 slippage);
+	event Collect(Strategy indexed strategy, uint256 received, uint256 slippage, uint256 bonus);
 
 	event StrategyAdded(Strategy indexed strategy, uint256 debtRatio);
 	event StrategyDebtRatioChanged(Strategy indexed strategy, uint256 newDebtRatio);
@@ -496,25 +496,26 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		uint256 debtBefore = strategies[_strategy].debt;
 		uint256 debtAfter = _strategy.totalAssets();
 
-		strategies[_strategy].debt = debtAfter;
-
 		uint256 diff = debtAfter - debtBefore;
 
 		uint256 slippage = amount > diff ? amount - diff : 0;
 
-		totalDebt += diff;
+		// ignore bonus if diff > amount, safeguard against imprecise `strategy.totalAsset()` calculations that open vault to being drained
+		uint256 debt = amount - slippage;
+
+		strategies[_strategy].debt += debt;
+		totalDebt += debt;
 
 		emit Lend(_strategy, amount, slippage);
 	}
 
-	/// @dev overflow is handled in Strategy.sol
-	/// @dev do not touch debt outside of _lend(), _collect() and _report()
 	function _collect(
 		Strategy _strategy,
 		uint256 _assets,
 		address _receiver
 	) internal returns (uint256 received, uint256 slippage) {
-		(received, slippage) = _strategy.withdraw(_assets, _receiver);
+		uint256 bonus;
+		(received, slippage, bonus) = _strategy.withdraw(_assets);
 
 		uint256 total = received + slippage;
 
@@ -525,7 +526,9 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		strategies[_strategy].debt -= amount;
 		totalDebt -= amount;
 
-		if (_receiver == address(this)) emit Collect(_strategy, received, slippage);
+		// do not pass bonuses on to users withdrawing, prevents exploits draining vault
+		if (_receiver == address(this)) emit Collect(_strategy, received, slippage, bonus);
+		else asset.safeTransfer(_receiver, received);
 	}
 
 	function _harvest(Strategy _strategy) internal {
