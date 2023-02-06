@@ -6,7 +6,6 @@ import 'forge-std/console.sol';
 import 'forge-std/Script.sol';
 import 'src/strategies/UsdcStrategyStargate.sol';
 import 'src/strategies/WethStrategyConvexStEth.sol';
-import 'src/strategies/WbtcStrategyConvexSbtc.sol';
 import 'src/zaps/WethZap.sol';
 
 contract Deploy is Script {
@@ -50,10 +49,6 @@ contract Deploy is Script {
 
 		wethStrategy.setAdmin(multisig);
 		wethStrategy.nominateOwnership(timeLock);
-
-		// Vault wbtcVault = new Vault(WBTC, authorized, delay);
-		// WbtcStrategyConvexSbtc wbtcStrategy = new WbtcStrategyConvexSbtc(wbtcVault, treasury, authorized, swap);
-		// wbtcVault.addStrategy(wbtcStrategy, 100);
 
 		vm.stopBroadcast();
 	}
