@@ -4,11 +4,11 @@ pragma solidity ^0.8.9;
 import 'solmate/tokens/ERC20.sol';
 import 'solmate/utils/SafeTransferLib.sol';
 import 'solmate/utils/FixedPointMathLib.sol';
-import 'src/libraries/Ownable.sol';
+import 'src/libraries/Ownership.sol';
 
 /// users can stake assets to receive rewards
 /// rewards can be distributed at uneven checkpoints
-contract Staking is Ownable {
+contract Staking is Ownership {
 	using SafeTransferLib for ERC20;
 	using FixedPointMathLib for uint256;
 
@@ -17,7 +17,7 @@ contract Staking is Ownable {
 	/// @notice reward token
 	ERC20 public immutable reward;
 
-	/// @notice record of total distributed rewards per share
+	/// @notice record of total distributed rewards per share, used to calculate rewards distributed
 	/// @dev gradually increments. users will be updated to the current figure whenever they interact with the contract
 	uint256 public totalRewardsPerShare;
 
@@ -29,7 +29,7 @@ contract Staking is Ownable {
 	/// @dev used instead of asset.balanceOf(address(this)) to prevent direct transfers from diluting everyone's rewards
 	uint256 public totalShares;
 
-	/// @notice
+	/// @notice current balance of rewards in contract, used for reward calculations
 	uint256 public currentRewardBalance;
 
 	/// @dev multiple mappings cost slightly less gas than a single mapping to a struct with multiple variables
@@ -46,7 +46,11 @@ contract Staking is Ownable {
 
 	uint256 internal constant MULTIPLIER = 1e18;
 
-	constructor(ERC20 _asset, ERC20 _reward) Ownable() {
+	constructor(
+		ERC20 _asset,
+		ERC20 _reward,
+		address[] memory _authorized
+	) Ownership(_authorized) {
 		asset = _asset;
 		reward = _reward;
 	}
@@ -55,6 +59,7 @@ contract Staking is Ownable {
 	/      View Functions      /
 	//////////////////////////*/
 
+	/// @notice amount of staked assets locked at the current timestamp
 	function lockedAssets(address _account) public view returns (uint256) {
 		uint256 locked = _lockedAssets[_account];
 		if (locked == 0) return 0;
@@ -66,6 +71,7 @@ contract Staking is Ownable {
 		return locked - locked.mulDivUp(block.timestamp - timestamp, duration);
 	}
 
+	/// @notice amount of staked assets user can withdraw at the current timestamp
 	function freeAssets(address _account) public view returns (uint256) {
 		return shares[_account] - lockedAssets(_account);
 	}
@@ -79,8 +85,6 @@ contract Staking is Ownable {
 	//////////////////////////*/
 
 	event Deposit(address indexed account, uint256 assets);
-	event Withdraw(address indexed account, uint256 assets);
-	event ClaimedRewards(address indexed account, uint256 rewards);
 
 	function deposit(uint256 _assets) external updateUser(msg.sender) {
 		asset.safeTransferFrom(msg.sender, address(this), _assets);
@@ -97,6 +101,7 @@ contract Staking is Ownable {
 	}
 
 	error AssetsLocked();
+	event Withdraw(address indexed account, uint256 assets);
 
 	function withdraw(uint256 _assets) external updateUser(msg.sender) {
 		if (_assets > freeAssets(msg.sender)) revert AssetsLocked();
@@ -108,6 +113,7 @@ contract Staking is Ownable {
 		emit Withdraw(msg.sender, _assets);
 	}
 
+	event ClaimedRewards(address indexed account, uint256 rewards);
 	error NoRewardsToClaim();
 
 	function claimRewards() external updateUser(msg.sender) returns (uint256 rewards) {
@@ -121,28 +127,36 @@ contract Staking is Ownable {
 		emit ClaimedRewards(msg.sender, rewards);
 	}
 
-	event RewardsAdded(uint256 added, uint256 newTotalRewardsPerShare);
+	/*////////////////////////////////
+	/      Authorized Functions      /
+	////////////////////////////////*/
+
+	event RewardsAdded(uint256 rewardsAdded, uint256 rewardsPerShareAdded, uint256 newTotalRewardsPerShare);
 	error NoRewardsToUpdate();
 
-	/// @dev anyone can call this to update `totalRewardsPerShare`, but will mostly be called by staking strategy after harvesting
-	function updateTotalRewards() external {
+	/// @dev authorize strategy and call it during harvest
+	/// @dev doing it this way also resolves dust left in contract due to rounding
+	function updateTotalRewards() external onlyAuthorized {
 		// TODO: handle when shares === 0
-		uint256 added = reward.balanceOf(address(this)) - currentRewardBalance;
-		if (added == 0) revert NoRewardsToUpdate();
+		uint256 rewardsAdded = reward.balanceOf(address(this)) - currentRewardBalance;
+		if (rewardsAdded == 0) revert NoRewardsToUpdate();
 
-		totalRewardsPerShare += added.mulDivDown(MULTIPLIER, totalShares);
-		emit RewardsAdded(added, totalRewardsPerShare);
+		uint256 rewardsPerShareAdded = rewardsAdded.mulDivDown(MULTIPLIER, totalShares);
+
+		currentRewardBalance += rewardsAdded;
+		totalRewardsPerShare += rewardsPerShareAdded;
+
+		emit RewardsAdded(rewardsAdded, rewardsPerShareAdded, totalRewardsPerShare);
 	}
 
 	/*///////////////////////////
-	/      Owner Functions      /
+	/      Admin Functions      /
 	///////////////////////////*/
 
 	event LockDurationSet(uint256 duration);
 	error AboveMaximumLockDuration();
 
-	// TODO: permissioned
-	function setLockDuration(uint256 _duration) external onlyOwner {
+	function setLockDuration(uint256 _duration) external onlyAdmins {
 		if (_duration > MAX_LOCK_DURATION) revert AboveMaximumLockDuration();
 		lockDuration = _duration;
 
@@ -150,6 +164,10 @@ contract Staking is Ownable {
 	}
 
 	error NothingToSkim();
+
+	/*///////////////////////////
+	/      Owner Functions      /
+	///////////////////////////*/
 
 	/// @notice used to withdraw assets accidentally transferred into contract (users should use deposit function)
 	function skim() external onlyOwner {
