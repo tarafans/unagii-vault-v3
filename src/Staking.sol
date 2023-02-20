@@ -131,22 +131,21 @@ contract Staking is Ownership {
 	/      Authorized Functions      /
 	////////////////////////////////*/
 
-	event RewardsAdded(uint256 rewardsAdded, uint256 rewardsPerShareAdded, uint256 newTotalRewardsPerShare);
+	event RewardsAdded(uint256 rewards, uint256 rewardsPerShare, uint256 newTotalRewardsPerShare);
 	error NoRewardsToUpdate();
 
-	/// @dev authorize strategy and call it during harvest
-	/// @dev doing it this way also resolves dust left in contract due to rounding
+	/// @dev typically, an authorized StakingStrategy will call this after harvesting
 	function updateTotalRewards() external onlyAuthorized {
 		// TODO: handle when shares === 0
-		uint256 rewardsAdded = reward.balanceOf(address(this)) - currentRewardBalance;
-		if (rewardsAdded == 0) revert NoRewardsToUpdate();
+		uint256 rewards = reward.balanceOf(address(this)) - currentRewardBalance;
+		if (rewards == 0) revert NoRewardsToUpdate();
 
-		uint256 rewardsPerShareAdded = rewardsAdded.mulDivDown(MULTIPLIER, totalShares);
+		uint256 rewardsPerShare = rewards.mulDivDown(MULTIPLIER, totalShares);
 
-		currentRewardBalance += rewardsAdded;
-		totalRewardsPerShare += rewardsPerShareAdded;
+		currentRewardBalance += rewards;
+		totalRewardsPerShare += rewardsPerShare;
 
-		emit RewardsAdded(rewardsAdded, rewardsPerShareAdded, totalRewardsPerShare);
+		emit RewardsAdded(rewards, rewardsPerShare, totalRewardsPerShare);
 	}
 
 	/*///////////////////////////
