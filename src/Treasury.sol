@@ -2,10 +2,13 @@
 pragma solidity ^0.8.9;
 
 import 'solmate/tokens/ERC20.sol';
+import 'solmate/utils/SafeTransferLib.sol';
 import 'src/Staking.sol';
 import 'src/libraries/Ownership.sol';
 
 abstract contract Treasury is Ownership {
+	using SafeTransferLib for ERC20;
+
 	/// @notice staking contract where where rewards are sent to
 	Staking public immutable staking;
 	/// @notice reward token sent to staking contract
@@ -20,8 +23,12 @@ abstract contract Treasury is Ownership {
 	/      Owner Functions      /
 	///////////////////////////*/
 
-	function withdraw(uint256 _assets) external onlyOwner returns (uint256 received) {
-		return _withdraw(_assets);
+	function withdraw(
+		ERC20 _token,
+		address _receiver,
+		uint256 _amount
+	) external onlyOwner {
+		_withdraw(_token, _receiver, _amount);
 	}
 
 	/*////////////////////////////////
@@ -33,8 +40,20 @@ abstract contract Treasury is Ownership {
 		staking.updateTotalRewards();
 	}
 
-	function invest() external onlyAuthorized {
-		_invest();
+	function invest(uint256 _min) external onlyAuthorized {
+		_invest(_min);
+	}
+
+	/*//////////////////////////////
+	/      Internal Functions      /
+	//////////////////////////////*/
+
+	function _withdraw(
+		ERC20 _token,
+		address _receiver,
+		uint256 _amount
+	) internal {
+		_token.safeTransfer(_receiver, _amount);
 	}
 
 	/*////////////////////////////
@@ -44,7 +63,5 @@ abstract contract Treasury is Ownership {
 	/// @dev this must 1. collect yield and 2. convert into rewards if necessary 3. send reward to staking contract
 	function _harvest() internal virtual;
 
-	function _withdraw(uint256 _assets) internal virtual returns (uint256 received);
-
-	function _invest() internal virtual;
+	function _invest(uint256 _min) internal virtual;
 }
