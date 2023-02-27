@@ -18,7 +18,7 @@ contract VaultTest is Test {
 
 	function setUp() public {
 		token = new MockERC20('Mock USD', 'MUSD', 6);
-		vault = new Vault(token, new address[](0), 0);
+		vault = new Vault(token, 0, 0, address(0), address(this), new address[](0));
 	}
 
 	/*///////////////////

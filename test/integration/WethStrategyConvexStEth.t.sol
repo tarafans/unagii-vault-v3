@@ -29,9 +29,9 @@ contract WethStrategyConvexStEthTest is TestHelpers {
 	ERC20 constant LDO = ERC20(0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32);
 
 	function setUp() public {
-		vault = new Vault(WETH9, new address[](0), 0);
+		vault = new Vault(WETH9, 0, 0, address(0), address(this), new address[](0));
 		swap = new Swap();
-		strategy = new WethStrategyConvexStEth(vault, treasury, new address[](0), swap);
+		strategy = new WethStrategyConvexStEth(vault, treasury, address(0), address(this), new address[](0), swap);
 		vault.addStrategy(strategy, 100);
 		zap = new WethZap(vault);
 	}
@@ -89,9 +89,7 @@ contract WethStrategyConvexStEthTest is TestHelpers {
 
 		uint256 startingAssets = strategy.totalAssets();
 
-		assertEq(CRV.balanceOf(treasury), 0);
-		assertEq(CVX.balanceOf(treasury), 0);
-		assertEq(LDO.balanceOf(treasury), 0);
+		assertEq(WETH9.balanceOf(treasury), 0);
 
 		vm.warp(block.timestamp + 14 days);
 
@@ -99,8 +97,6 @@ contract WethStrategyConvexStEthTest is TestHelpers {
 
 		// slippage due to our ETH deposit skewing the ETH-stETH ratio + curve's time-weighted coefficient. in the real world arbitrage will rebalance the pool
 		assertCloseTo(strategy.totalAssets(), startingAssets, 5); // 0.5%
-		assertGt(CRV.balanceOf(treasury), 0);
-		assertGt(CVX.balanceOf(treasury), 0);
-		assertGt(LDO.balanceOf(treasury), 0);
+		assertGt(WETH9.balanceOf(treasury), 0);
 	}
 }
