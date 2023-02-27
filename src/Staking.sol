@@ -134,11 +134,14 @@ contract Staking is Ownership {
 	////////////////////////////////*/
 
 	event RewardsAdded(uint256 rewards, uint256 rewardsPerShare, uint256 newTotalRewardsPerShare);
-	error NoRewardsToUpdate();
 
-	/// @dev typically, an authorized StakingStrategy will call this after harvesting
+	error NoRewardsToUpdate();
+	error NoShares();
+
+	/// @dev authorize Treasury to call this during harvest
 	function updateTotalRewards() external onlyAuthorized {
-		// TODO: handle when shares === 0
+		if (totalShares == 0) revert NoShares();
+
 		uint256 rewards = reward.balanceOf(address(this)) - currentRewardBalance;
 		if (rewards == 0) revert NoRewardsToUpdate();
 

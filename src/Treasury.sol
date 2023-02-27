@@ -9,23 +9,19 @@ import 'src/libraries/Ownership.sol';
 abstract contract Treasury is Ownership {
 	using SafeTransferLib for ERC20;
 
-	/// @notice asset of the underlying vault. can be the same as 'reward'
+	/// @notice asset of the underlying vault
 	ERC20 public immutable asset;
-	/// @notice reward token sent to staking contract
-	ERC20 public immutable reward;
 	/// @notice staking contract where where rewards are sent to
 	Staking public immutable staking;
 
 	constructor(
-		ERC20 _asset,
 		Staking _staking,
 		address _nominatedOwner,
 		address _admin,
 		address[] memory _authorized
 	) Ownership(_nominatedOwner, _admin, _authorized) {
-		asset = _asset;
 		staking = _staking;
-		reward = staking.reward();
+		asset = staking.reward();
 	}
 
 	/*///////////////////////////
