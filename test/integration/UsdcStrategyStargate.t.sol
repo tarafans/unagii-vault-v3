@@ -24,7 +24,7 @@ contract UsdcStrategyStargateTest is TestHelpers {
 	ERC20 constant STG = ERC20(0xAf5191B0De278C7286d6C7CC6ab6BB8A73bA2Cd6);
 
 	function setUp() public {
-		vault = new Vault(USDC, new address[](0), 0);
+		vault = new Vault(USDC, 0, 0, address(0), address(this), new address[](0));
 		swap = new Swap();
 
 		swap.setRoute(
@@ -33,7 +33,7 @@ contract UsdcStrategyStargateTest is TestHelpers {
 			Swap.RouteInfo({route: Swap.Route.UniswapV3Direct, info: abi.encode(uint24(3_000))})
 		);
 
-		strategy = new UsdcStrategyStargate(vault, treasury, new address[](0), swap);
+		strategy = new UsdcStrategyStargate(vault, treasury, address(0), address(this), new address[](0), swap);
 		vault.addStrategy(strategy, 100);
 	}
 
@@ -101,7 +101,7 @@ contract UsdcStrategyStargateTest is TestHelpers {
 		vault.harvest(strategy);
 
 		assertGe(strategy.totalAssets(), startingAssets);
-		assertGt(STG.balanceOf(treasury), 0);
+		assertGt(USDC.balanceOf(treasury), 0);
 	}
 
 	function testManualWithdraw(uint256 amount) public {

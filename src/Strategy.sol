@@ -12,6 +12,7 @@ import './Vault.sol';
  * _invest()
  */
 abstract contract Strategy is Ownership {
+	using SafeTransferLib for ERC20;
 	using FixedPointMathLib for uint256;
 
 	Vault public immutable vault;
@@ -49,8 +50,10 @@ abstract contract Strategy is Ownership {
 	constructor(
 		Vault _vault,
 		address _treasury,
+		address _nominatedOwner,
+		address _admin,
 		address[] memory _authorized
-	) Ownership(_authorized) {
+	) Ownership(_nominatedOwner, _admin, _authorized) {
 		vault = _vault;
 		asset = vault.asset();
 		treasury = _treasury;
@@ -97,8 +100,18 @@ abstract contract Strategy is Ownership {
 	/      Restricted Functions: onlyAdminOrVault      /
 	//////////////////////////////////////////////////*/
 
-	function harvest() external onlyAdminOrVault returns (uint256 assets) {
-		return _harvest();
+	function harvest() external onlyAdminOrVault returns (uint256 received) {
+		_harvest();
+
+		received = asset.balanceOf(address(this));
+
+		if (fee > 0) {
+			uint256 feeAmount = _calculateFee(received);
+			received -= feeAmount;
+			asset.safeTransfer(treasury, feeAmount);
+		}
+
+		asset.safeTransfer(address(vault), received);
 	}
 
 	function invest() external onlyAdminOrVault {
@@ -140,7 +153,7 @@ abstract contract Strategy is Ownership {
 	function _withdraw(uint256 _assets) internal virtual returns (uint256 received);
 
 	/// @dev return harvested assets
-	function _harvest() internal virtual returns (uint256 received);
+	function _harvest() internal virtual;
 
 	function _invest() internal virtual;
 
