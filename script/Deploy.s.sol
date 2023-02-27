@@ -36,7 +36,7 @@ contract Deploy is Script {
 		);
 		usdcVault.addStrategy(usdcStrategy, 95);
 
-		Vault wethVault = new Vault(WETH9, delay, float, authorized, delay);
+		Vault wethVault = new Vault(WETH9, delay, float, timeLock, multisig, authorized);
 
 		WethStrategyConvexStEth wethStrategy = new WethStrategyConvexStEth(
 			wethVault,
