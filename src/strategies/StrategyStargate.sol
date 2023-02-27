@@ -34,11 +34,13 @@ abstract contract StrategyStargate is Strategy {
 	constructor(
 		Vault _vault,
 		address _treasury,
+		address _nominatedOwner,
+		address _admin,
 		address[] memory _authorized,
 		Swap _swap,
 		uint16 _routerPoolId,
 		uint256 _stakingPoolId
-	) Strategy(_vault, _treasury, _authorized) {
+	) Strategy(_vault, _treasury, _nominatedOwner, _admin, _authorized) {
 		swap = _swap;
 		routerPoolId = _routerPoolId;
 		stakingPoolId = _stakingPoolId;
@@ -125,23 +127,14 @@ abstract contract StrategyStargate is Strategy {
 		if (received < _calculateSlippage(_assets)) revert BelowMinimum(received);
 	}
 
-	function _harvest() internal override returns (uint256 received) {
+	function _harvest() internal override {
 		// empty deposit/withdraw claims rewards withdraw as with all Goose clones
 		staking.withdraw(stakingPoolId, 0);
 
 		uint256 rewardBalance = STG.balanceOf(address(this));
 		if (rewardBalance == 0) revert NoRewards(); // nothing to harvest
 
-		if (fee > 0) {
-			uint256 feeAmount = _calculateFee(rewardBalance);
-			STG.safeTransfer(treasury, feeAmount);
-			rewardBalance -= feeAmount;
-		}
-
 		swap.swapTokens(address(STG), address(asset), rewardBalance, 1);
-
-		received = asset.balanceOf(address(this));
-		asset.safeTransfer(address(vault), received);
 	}
 
 	function _invest() internal override {

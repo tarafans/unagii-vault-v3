@@ -18,7 +18,7 @@ contract VaultTest is Test {
 
 	function setUp() public {
 		token = new MockERC20('Mock USD', 'MUSD', 6);
-		vault = new Vault(token, new address[](0), 0);
+		vault = new Vault(token, 0, 0, address(0), address(this), new address[](0));
 	}
 
 	/*///////////////////
@@ -236,5 +236,33 @@ contract VaultTest is Test {
 
 		assertEq(token.balanceOf(u1), amount);
 		assertEq(vault.totalAssets(), bonus);
+	}
+
+	function testFloat(uint256 amount) public {
+		vm.assume(amount > 0 && amount < type(uint240).max);
+
+		vault.setFloatDebtRatio(5);
+		MockStrategy s1 = new MockStrategy(vault);
+		vault.addStrategy(s1, 95);
+
+		assertEq(vault.totalDebtRatio(), 100);
+		assertEq(vault.floatDebtRatio(), 5);
+
+		deposit(u1, amount, u1);
+		vault.report(s1);
+
+		uint256 expectedBalance = amount.mulDivDown(95, 100);
+
+		assertEq(token.balanceOf(address(vault)), amount - expectedBalance);
+		assertEq(s1.totalAssets(), expectedBalance);
+
+		vault.setFloatDebtRatio(0);
+
+		vault.report(s1);
+
+		assertEq(token.balanceOf(address(vault)), 0);
+		assertEq(s1.totalAssets(), amount);
+		assertEq(vault.totalDebtRatio(), 95);
+		assertEq(vault.floatDebtRatio(), 0);
 	}
 }

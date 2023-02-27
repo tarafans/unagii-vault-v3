@@ -7,3 +7,8 @@ optimizer = true
 optimizer-runs = 10000
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
+[rpc_endpoints]
+mainnet = "${RPC_URL}"
+
+[etherscan]
+mainnet = { key = "${ETHERSCAN_API_KEY}" }

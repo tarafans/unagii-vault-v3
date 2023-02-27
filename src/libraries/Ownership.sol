@@ -18,9 +18,14 @@ abstract contract Ownership {
 	error NotRole();
 
 	/// @param _authorized maximum of 256 addresses in constructor
-	constructor(address[] memory _authorized) {
+	constructor(
+		address _nominatedOwner,
+		address _admin,
+		address[] memory _authorized
+	) {
 		owner = msg.sender;
-		admin = msg.sender;
+		nominatedOwner = _nominatedOwner;
+		admin = _admin;
 		for (uint8 i = 0; i < _authorized.length; ++i) {
 			authorized[_authorized[i]] = true;
 			emit AuthAdded(_authorized[i]);
