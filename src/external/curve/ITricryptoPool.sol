@@ -11,4 +11,6 @@ interface ITricryptoPool {
 		uint256 _i,
 		uint256 _min_amount
 	) external;
+
+	function coins(uint256 _i) external returns (address);
 }

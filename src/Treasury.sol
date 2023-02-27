@@ -19,8 +19,10 @@ abstract contract Treasury is Ownership {
 	constructor(
 		ERC20 _asset,
 		Staking _staking,
+		address _nominatedOwner,
+		address _admin,
 		address[] memory _authorized
-	) Ownership(_authorized) {
+	) Ownership(_nominatedOwner, _admin, _authorized) {
 		asset = _asset;
 		staking = _staking;
 		reward = staking.reward();

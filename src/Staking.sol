@@ -49,8 +49,10 @@ contract Staking is Ownership {
 	constructor(
 		ERC20 _asset,
 		ERC20 _reward,
+		address _nominatedOwner,
+		address _admin,
 		address[] memory _authorized
-	) Ownership(_authorized) {
+	) Ownership(_nominatedOwner, _admin, _authorized) {
 		asset = _asset;
 		reward = _reward;
 	}

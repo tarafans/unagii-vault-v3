@@ -21,7 +21,7 @@ contract StakingTest is Test {
 	function setUp() public {
 		asset = new MockERC20('Mock Asset', 'mAsset', 18);
 		reward = new MockERC20('Mock Reward', 'mReward', 18);
-		staking = new Staking(asset, reward, new address[](0));
+		staking = new Staking(asset, reward, address(0), address(this), new address[](0));
 	}
 
 	function deposit(address from, uint256 amount) internal {

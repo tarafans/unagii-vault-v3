@@ -14,7 +14,7 @@ contract TreasuryConvexTricrypto is Treasury {
 	/// @notice contract used to swap CRV/CVX to treasury reward
 	Swap public swap;
 
-	/// @notice index of asset in pool
+	/// @notice index of reward in tricrypto pool
 	uint8 public immutable index;
 
 	ITricryptoPool internal constant pool = ITricryptoPool(0xD51a44d3FaE010294C616388b506AcdA1bfAAE46);
@@ -27,17 +27,10 @@ contract TreasuryConvexTricrypto is Treasury {
 	ERC20 internal constant CRV = ERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
 	ERC20 internal constant CVX = ERC20(0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B);
 
-	ERC20 internal constant USDC = ERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-	ERC20 internal constant USDT = ERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
-	ERC20 internal constant WBTC = ERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
-	ERC20 internal constant WETH = ERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-
-	/// @notice tokens in tricrypto pool
-	ERC20[3] public coins = [USDT, WBTC, WETH];
-
 	ERC20[2] public rewards = [CRV, CVX];
 	bool public shouldClaimExtras = true;
 
+	error InvalidIndex();
 	error WithdrawAndUnwrapFailed();
 
 	/// @dev pid of tricrypto2 in Convex
@@ -46,10 +39,17 @@ contract TreasuryConvexTricrypto is Treasury {
 	constructor(
 		ERC20 _asset,
 		Swap _swap,
+		uint8 _index,
 		Staking _staking,
+		address _nominatedOwner,
+		address _admin,
 		address[] memory _authorized
-	) Treasury(_asset, _staking, _authorized) {
+	) Treasury(_asset, _staking, _nominatedOwner, _admin, _authorized) {
+		if (pool.coins(_index) != address(reward)) revert InvalidIndex();
+
 		swap = _swap;
+		index = _index;
+
 		_approve();
 	}
 
@@ -67,7 +67,7 @@ contract TreasuryConvexTricrypto is Treasury {
 
 		pool.remove_liquidity_one_coin(_lpAmount, _i, _min);
 
-		ERC20 token = coins[_i];
+		ERC20 token = ERC20(pool.coins(_i));
 		uint256 balance = token.balanceOf(address(this));
 		_withdraw(token, _receiver, balance);
 	}
@@ -125,17 +125,17 @@ contract TreasuryConvexTricrypto is Treasury {
 
 		if (assetBalance == 0) revert NothingToInvest();
 
-		// if USDC, swap to USDT
-		if (asset == USDC) swap.swapTokens(address(USDC), address(USDT), assetBalance, 1);
+		// convert from USDC to USDT
+		if (asset != reward) {
+			swap.swapTokens(address(asset), address(reward), assetBalance, 1);
+			assetBalance = reward.balanceOf(address(this));
+		}
 
-		uint256[] memory balances = new balances[](3);
-
+		uint256[] memory balances = new uint256[](3);
 		balances[index] = assetBalance;
 
-		// add_liquidity
-		pool.add_liquidity([usdtBalance, wbtcBalance, wethBalance], _min);
+		pool.add_liquidity([balances[0], balances[1], balances[2]], _min);
 
-		// deposit in booster
 		uint256 lpBalance = lpToken.balanceOf(address(this));
 		if (!booster.deposit(pid, lpBalance, true)) revert DepositFailed();
 	}
@@ -146,11 +146,7 @@ contract TreasuryConvexTricrypto is Treasury {
 
 	function _approve() internal {
 		// approve deposit USDT/WBTC/WETH in pool
-		uint8 length = uint8(coins.length);
-		for (uint8 i = 0; i < length; ++i) {
-			coins[i].safeApprove(address(pool), type(uint256).max);
-		}
-
+		reward.safeApprove(address(pool), type(uint256).max);
 		// approve deposit lpTokens into booster
 		lpToken.safeApprove(address(booster), type(uint256).max);
 		// approve withdraw lpTokens
@@ -160,11 +156,7 @@ contract TreasuryConvexTricrypto is Treasury {
 	}
 
 	function _unapprove() internal {
-		uint8 length = uint8(coins.length);
-		for (uint8 i = 0; i < length; ++i) {
-			coins[i].safeApprove(address(pool), 0);
-		}
-
+		reward.safeApprove(address(pool), 0);
 		lpToken.safeApprove(address(booster), 0);
 		lpToken.safeApprove(address(pool), 0);
 
