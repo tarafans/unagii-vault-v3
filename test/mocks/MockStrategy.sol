@@ -15,7 +15,7 @@ contract MockStrategy is Strategy {
 	uint256 slippageOnNextWithdraw;
 	uint256 bonusOnNextWithdraw;
 
-	constructor(Vault _vault) Strategy(_vault, address(0), new address[](0)) {}
+	constructor(Vault _vault) Strategy(_vault, address(0), address(0), address(this), new address[](0)) {}
 
 	function totalAssets() public view override returns (uint256) {
 		return asset.balanceOf(address(this));
@@ -58,7 +58,7 @@ contract MockStrategy is Strategy {
 		return amount;
 	}
 
-	function _harvest() internal override returns (uint256) {}
+	function _harvest() internal override {}
 
 	function _invest() internal override {
 		if (slippageOnNextInvest == 0) return;

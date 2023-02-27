@@ -47,9 +47,11 @@ contract WethStrategyConvexStEth is Strategy {
 	constructor(
 		Vault _vault,
 		address _treasury,
+		address _nominatedOwner,
+		address _admin,
 		address[] memory _authorized,
 		Swap _swap
-	) Strategy(_vault, _treasury, _authorized) {
+	) Strategy(_vault, _treasury, _nominatedOwner, _admin, _authorized) {
 		swap = _swap;
 
 		_approve();
@@ -112,7 +114,7 @@ contract WethStrategyConvexStEth is Strategy {
 		asset.safeTransfer(address(vault), received);
 	}
 
-	function _harvest() internal override returns (uint256 received) {
+	function _harvest() internal override {
 		if (!reward.getReward(address(this), shouldClaimExtras)) revert ClaimRewardsFailed();
 
 		uint8 length = uint8(rewards.length);
@@ -131,9 +133,6 @@ contract WethStrategyConvexStEth is Strategy {
 
 			swap.swapTokens(address(rewardToken), address(asset), rewardBalance, 1);
 		}
-
-		received = asset.balanceOf(address(this));
-		asset.safeTransfer(address(vault), received);
 	}
 
 	function _invest() internal override {

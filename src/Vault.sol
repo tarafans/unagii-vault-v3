@@ -42,6 +42,8 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	uint8 internal constant MAX_QUEUE_LENGTH = 20;
 
 	uint256 public totalDebt;
+	/// @dev proportion of funds kept in vault to facilitate user withdrawals
+	uint256 public floatDebtRatio;
 	uint256 public totalDebtRatio;
 	uint256 internal constant MAX_TOTAL_DEBT_RATIO = 1_000;
 
@@ -60,6 +62,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
 	event LockedProfitDurationChanged(uint256 newDuration);
 	event MaxDepositChanged(uint256 newMaxDeposit);
+	event FloatDebtRatioChanged(uint256 newFloatDebtRatio);
 
 	/*//////////////////
 	/      Errors      /
@@ -83,18 +86,22 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	/// @dev e.g. USDC becomes 'Unagii USD Coin Vault v3' and 'uUSDCv3'
 	constructor(
 		ERC20 _asset,
-		address[] memory _authorized,
-		uint8 _blockDelay
+		uint8 _blockDelay,
+		uint256 _floatDebtRatio,
+		address _nominatedOwner,
+		address _admin,
+		address[] memory _authorized
 	)
 		ERC20(
 			string(abi.encodePacked('Unagii ', _asset.name(), ' Vault v3')),
 			string(abi.encodePacked('u', _asset.symbol(), 'v3')),
 			_asset.decimals()
 		)
-		Ownership(_authorized)
+		Ownership(_nominatedOwner, _admin, _authorized)
 		BlockDelay(_blockDelay)
 	{
 		asset = _asset;
+		_setFloatDebtRatio(_floatDebtRatio);
 	}
 
 	/*///////////////////////
@@ -399,6 +406,10 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		_report(_strategy, 0);
 	}
 
+	function setFloatDebtRatio(uint256 _floatDebtRatio) external onlyAuthorized {
+		_setFloatDebtRatio(_floatDebtRatio);
+	}
+
 	/*///////////////////////////////////////////
 	/      Internal Override: useBlockDelay     /
 	///////////////////////////////////////////*/
@@ -584,6 +595,16 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 		totalDebtRatio = newTotalDebtRatio;
 
 		emit StrategyDebtRatioChanged(_strategy, _newDebtRatio);
+	}
+
+	function _setFloatDebtRatio(uint256 _floatDebtRatio) internal {
+		uint256 newTotalDebtRatio = totalDebtRatio + _floatDebtRatio - floatDebtRatio;
+		if (newTotalDebtRatio > MAX_TOTAL_DEBT_RATIO) revert AboveMaximum(newTotalDebtRatio);
+
+		floatDebtRatio = _floatDebtRatio;
+		totalDebtRatio = newTotalDebtRatio;
+
+		emit FloatDebtRatioChanged(_floatDebtRatio);
 	}
 
 	/*/////////////////////
