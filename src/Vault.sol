@@ -24,7 +24,7 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 	/// @notice timestamp of last report, used for locked profit calculations
 	uint256 public lastReport;
 	/// @notice period over which profits are gradually unlocked, defense against sandwich attacks
-	uint256 public lockedProfitDuration = 6 hours;
+	uint256 public lockedProfitDuration = 24 hours;
 	uint256 internal constant MAX_LOCKED_PROFIT_DURATION = 3 days;
 
 	/// @dev maximum user can deposit in a single tx
