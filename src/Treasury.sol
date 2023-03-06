@@ -21,6 +21,7 @@ abstract contract Treasury is Ownership {
 		address[] memory _authorized
 	) Ownership(_nominatedOwner, _admin, _authorized) {
 		staking = _staking;
+		// the assumption here is that the asset of the underlying vault is the reward for the staking contract
 		asset = staking.reward();
 	}
 
@@ -65,7 +66,7 @@ abstract contract Treasury is Ownership {
 	/      Internal Virtual      /
 	////////////////////////////*/
 
-	/// @dev this must 1. collect yield and 2. convert into rewards if necessary 3. send reward to staking contract
+	/// @dev this must 1. collect yield, 2. convert into reward token and 3. send reward to staking contract
 	function _harvest() internal virtual;
 
 	function _invest(uint256 _min) internal virtual;

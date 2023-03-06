@@ -6,8 +6,6 @@ import 'solmate/utils/SafeTransferLib.sol';
 import 'solmate/utils/FixedPointMathLib.sol';
 import 'src/libraries/Ownership.sol';
 
-/// users can stake assets to receive rewards
-/// rewards can be distributed at uneven checkpoints
 contract Staking is Ownership {
 	using SafeTransferLib for ERC20;
 	using FixedPointMathLib for uint256;
@@ -17,7 +15,7 @@ contract Staking is Ownership {
 	/// @notice reward token
 	ERC20 public immutable reward;
 
-	/// @notice record of total distributed rewards per share, used to calculate rewards distributed
+	/// @notice record of total distributed rewards per share, used to calculate rewards as users join/leave the pool
 	/// @dev gradually increments. users will be updated to the current figure whenever they interact with the contract
 	uint256 public totalRewardsPerShare;
 
@@ -36,7 +34,7 @@ contract Staking is Ownership {
 
 	/// @notice amount of shares (staked assets) per user
 	mapping(address => uint256) public shares;
-	/// @notice timestamp of the user's last deposit used for vesting unlock calculations
+	/// @notice timestamp of the user's last deposit, used for vesting unlock calculations
 	mapping(address => uint256) public lastDepositTimestamp;
 
 	/// @dev record of user's last total rewards per share checkpoint
@@ -138,7 +136,7 @@ contract Staking is Ownership {
 	error NoRewardsToUpdate();
 	error NoShares();
 
-	/// @dev authorize Treasury to call this during harvest
+	/// @dev authorize treasury contract to automatically call this during harvest
 	function updateTotalRewards() external onlyAuthorized {
 		if (totalShares == 0) revert NoShares();
 
@@ -183,7 +181,7 @@ contract Staking is Ownership {
 	error InvalidToken();
 	error NothingToSweep();
 
-	/// @notice used to withdraw tokens accidentally transferred to strategy
+	/// @notice used to withdraw tokens accidentally transferred to this contract
 	function sweep(ERC20 _token) external onlyOwner {
 		if (_token == asset || _token == reward) revert InvalidToken();
 		uint256 amount = _token.balanceOf(address(this));
