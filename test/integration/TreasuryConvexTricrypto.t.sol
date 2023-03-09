@@ -40,12 +40,6 @@ contract TreasuryConvexTricryptoTest is TestHelpers {
 
 		swap = new Swap();
 
-		swap.setRoute(
-			address(USDC),
-			address(USDT),
-			Swap.RouteInfo({route: Swap.Route.UniswapV3Direct, info: abi.encode(uint24(100))})
-		);
-
 		wethTreasury = new TreasuryConvexTricrypto(wethStaking, address(0), address(this), new address[](0), swap, 2);
 		usdcTreasury = new TreasuryConvexTricrypto(usdcStaking, address(0), address(this), new address[](0), swap, 0);
 

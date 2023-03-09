@@ -25,11 +25,7 @@ contract VaultTest is Test {
 	/      Helpers      /
 	///////////////////*/
 
-	function deposit(
-		address from,
-		uint256 amount,
-		address receiver
-	) internal {
+	function deposit(address from, uint256 amount, address receiver) internal {
 		token.mint(from, amount);
 		vm.startPrank(from);
 		token.approve(address(vault), type(uint256).max);
@@ -109,12 +105,12 @@ contract VaultTest is Test {
 		assertEq(vault.freeAssets(), 0);
 		assertEq(vault.totalAssets(), amount);
 
-		vm.warp(block.timestamp + 3 hours);
+		vm.warp(block.timestamp + 12 hours);
 
 		assertEq(vault.lockedProfit(), amount.mulDivUp(1, 2));
 		assertEq(vault.freeAssets(), amount.mulDivDown(1, 2));
 
-		vm.warp(block.timestamp + 6 hours);
+		vm.warp(block.timestamp + 24 hours);
 
 		assertEq(vault.lockedProfit(), 0);
 		assertEq(vault.freeAssets(), amount);
