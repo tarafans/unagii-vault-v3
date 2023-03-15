@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.9;
 
-import 'forge-std/console.sol';
-
 import 'solmate/tokens/ERC20.sol';
 import 'solmate/utils/SafeTransferLib.sol';
 import './external/uniswap/ISwapRouter02.sol';
@@ -177,7 +175,11 @@ contract Swap is Ownable {
 	/      Restricted Functions: onlyOwner      /
 	///////////////////////////////////////////*/
 
-	function setRoute(address _tokenIn, address _tokenOut, RouteInfo memory _routeInfo) external onlyOwner {
+	function setRoute(
+		address _tokenIn,
+		address _tokenOut,
+		RouteInfo memory _routeInfo
+	) external onlyOwner {
 		_setRoute(_tokenIn, _tokenOut, _routeInfo);
 	}
 
@@ -190,7 +192,11 @@ contract Swap is Ownable {
 	/      Internal Functions      /
 	//////////////////////////////*/
 
-	function _setRoute(address _tokenIn, address _tokenOut, RouteInfo memory _routeInfo) internal {
+	function _setRoute(
+		address _tokenIn,
+		address _tokenOut,
+		RouteInfo memory _routeInfo
+	) internal {
 		Route route = _routeInfo.route;
 		bytes memory info = _routeInfo.info;
 
@@ -228,13 +234,21 @@ contract Swap is Ownable {
 		emit RouteSet(_tokenIn, _tokenOut, _routeInfo);
 	}
 
-	function _uniswapV2(uint256 _amount, uint256 _minReceived, bytes memory _path) internal returns (uint256) {
+	function _uniswapV2(
+		uint256 _amount,
+		uint256 _minReceived,
+		bytes memory _path
+	) internal returns (uint256) {
 		address[] memory path = abi.decode(_path, (address[]));
 
 		return uniswap.swapExactTokensForTokens(_amount, _minReceived, path, msg.sender);
 	}
 
-	function _sushiswap(uint256 _amount, uint256 _minReceived, bytes memory _path) internal returns (uint256) {
+	function _sushiswap(
+		uint256 _amount,
+		uint256 _minReceived,
+		bytes memory _path
+	) internal returns (uint256) {
 		address[] memory path = abi.decode(_path, (address[]));
 
 		uint256[] memory received = sushiswap.swapExactTokensForTokens(
@@ -271,7 +285,11 @@ contract Swap is Ownable {
 			);
 	}
 
-	function _uniswapV3Path(uint256 _amount, uint256 _minReceived, bytes memory _path) internal returns (uint256) {
+	function _uniswapV3Path(
+		uint256 _amount,
+		uint256 _minReceived,
+		bytes memory _path
+	) internal returns (uint256) {
 		return
 			uniswap.exactInput(
 				ISwapRouter02.ExactInputParams({
@@ -283,7 +301,11 @@ contract Swap is Ownable {
 			);
 	}
 
-	function _balancerBatch(uint256 _amount, uint256 _minReceived, bytes memory _info) internal returns (uint256) {
+	function _balancerBatch(
+		uint256 _amount,
+		uint256 _minReceived,
+		bytes memory _info
+	) internal returns (uint256) {
 		(IVault.BatchSwapStep[] memory steps, IAsset[] memory assets) = abi.decode(
 			_info,
 			(IVault.BatchSwapStep[], IAsset[])
