@@ -5,6 +5,18 @@ import 'forge-std/console.sol';
 import 'forge-std/Script.sol';
 import 'src/Swap.sol';
 
+contract Deploy is Script {
+	function run() external {
+		vm.startBroadcast(vm.envUint('PRIVATE_KEY'));
+
+		Swap swap = new Swap();
+
+		console.log(address(swap));
+
+		vm.stopBroadcast();
+	}
+}
+
 contract GetRoute is Script {
 	using Path for bytes;
 
@@ -40,6 +52,23 @@ contract GetRoute is Script {
 
 			(, address tokenOut, ) = path.decodeFirstPool();
 			console.log(tokenOut);
+		} else if (data.route == Swap.Route.BalancerBatch) {
+			(IVault.BatchSwapStep[] memory steps, IAsset[] memory assets) = abi.decode(
+				data.info,
+				(IVault.BatchSwapStep[], IAsset[])
+			);
+
+			console.log('Pools:');
+
+			for (uint8 i = 0; i < steps.length; i++) {
+				console.log(string(abi.encodePacked(steps[i].poolId)));
+			}
+
+			console.log('Assets:');
+
+			for (uint8 i = 0; i < assets.length; i++) {
+				console.log(address(assets[i]));
+			}
 		} else {
 			console.log('Unsupported');
 		}

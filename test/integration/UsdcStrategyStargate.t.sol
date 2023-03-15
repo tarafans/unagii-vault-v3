@@ -27,12 +27,6 @@ contract UsdcStrategyStargateTest is TestHelpers {
 		vault = new Vault(USDC, 0, 0, address(0), address(this), new address[](0));
 		swap = new Swap();
 
-		swap.setRoute(
-			address(STG),
-			address(USDC),
-			Swap.RouteInfo({route: Swap.Route.UniswapV3Direct, info: abi.encode(uint24(3_000))})
-		);
-
 		strategy = new UsdcStrategyStargate(vault, treasury, address(0), address(this), new address[](0), swap);
 		vault.addStrategy(strategy, 100);
 	}
@@ -41,11 +35,7 @@ contract UsdcStrategyStargateTest is TestHelpers {
 	/      Helpers      /
 	///////////////////*/
 
-	function depositUsdc(
-		address from,
-		uint256 amount,
-		address receiver
-	) public {
+	function depositUsdc(address from, uint256 amount, address receiver) public {
 		vm.prank(usdcWhale);
 		USDC.transfer(from, amount);
 		vm.startPrank(from);

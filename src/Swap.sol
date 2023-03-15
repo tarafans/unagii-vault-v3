@@ -5,6 +5,7 @@ import 'solmate/tokens/ERC20.sol';
 import 'solmate/utils/SafeTransferLib.sol';
 import './external/uniswap/ISwapRouter02.sol';
 import './external/sushiswap/ISushiRouter.sol';
+import {IAsset, IVault} from './external/balancer/IVault.sol';
 import './libraries/Ownable.sol';
 import './libraries/Path.sol';
 
@@ -23,7 +24,8 @@ contract Swap is Ownable {
 		UniswapV2,
 		UniswapV3Direct,
 		UniswapV3Path,
-		SushiSwap
+		SushiSwap,
+		BalancerBatch
 	}
 
 	/**
@@ -41,21 +43,10 @@ contract Swap is Ownable {
 	/// @dev single address which supports both uniswap v2 and v3 routes
 	ISwapRouter02 internal constant uniswap = ISwapRouter02(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
 
+	IVault internal constant balancer = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
+
 	/// @dev tokenIn => tokenOut => routeInfo
 	mapping(address => mapping(address => RouteInfo)) public routes;
-
-	address internal constant CRV = 0xD533a949740bb3306d119CC777fa900bA034cd52;
-	address internal constant CVX = 0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B;
-
-	address internal constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-	address internal constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
-
-	address internal constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-	address internal constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
-	address internal constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
-
-	address internal constant LDO = 0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32;
-	address internal constant PNT = 0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD;
 
 	/*//////////////////
 	/      Events      /
@@ -72,19 +63,21 @@ contract Swap is Ownable {
 	error InvalidRouteInfo();
 
 	constructor() Ownable() {
-		// Solidity arrays are dumb
-		address[] memory path = new address[](3);
-		path[0] = CRV;
-		path[1] = WETH;
-		path[2] = USDC;
+		address CRV = 0xD533a949740bb3306d119CC777fa900bA034cd52;
+		address CVX = 0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B;
+		address LDO = 0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32;
 
-		_setRoute(CRV, USDC, RouteInfo({route: Route.UniswapV2, info: abi.encode(path)}));
+		address WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
-		path[2] = WBTC;
-		_setRoute(CRV, WBTC, RouteInfo({route: Route.SushiSwap, info: abi.encode(path)}));
+		address STG = 0xAf5191B0De278C7286d6C7CC6ab6BB8A73bA2Cd6;
+		address USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+		address USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 
 		_setRoute(CRV, WETH, RouteInfo({route: Route.UniswapV3Direct, info: abi.encode(uint24(3_000))}));
+		_setRoute(CVX, WETH, RouteInfo({route: Route.UniswapV3Direct, info: abi.encode(uint24(10_000))}));
+		_setRoute(LDO, WETH, RouteInfo({route: Route.UniswapV3Direct, info: abi.encode(uint24(3_000))}));
 
+		_setRoute(CRV, USDC, RouteInfo({route: Route.UniswapV3Direct, info: abi.encode(uint24(10_000))}));
 		_setRoute(
 			CVX,
 			USDC,
@@ -93,29 +86,45 @@ contract Swap is Ownable {
 				info: abi.encodePacked(CVX, uint24(10_000), WETH, uint24(500), USDC)
 			})
 		);
-		_setRoute(
-			CVX,
-			WBTC,
-			RouteInfo({
-				route: Route.UniswapV3Path,
-				info: abi.encodePacked(CVX, uint24(10_000), WETH, uint24(500), WBTC)
-			})
-		);
 
-		address[] memory shortPath = new address[](2);
-		shortPath[0] = CVX;
-		shortPath[1] = WETH;
+		_setRoute(USDC, USDT, RouteInfo({route: Route.UniswapV3Direct, info: abi.encode(uint24(100))}));
 
-		_setRoute(CVX, WETH, RouteInfo({route: Route.SushiSwap, info: abi.encode(shortPath)}));
+		IAsset[] memory assets = new IAsset[](4);
+		assets[0] = IAsset(STG);
+		assets[1] = IAsset(0xA13a9247ea42D743238089903570127DdA72fE44); // bb-a-USD
+		assets[2] = IAsset(0x82698aeCc9E28e9Bb27608Bd52cF57f704BD1B83); // bb-a-USDC
+		assets[3] = IAsset(USDC);
 
-		shortPath[0] = LDO;
-		_setRoute(LDO, WETH, RouteInfo({route: Route.SushiSwap, info: abi.encode(shortPath)}));
+		IVault.BatchSwapStep[] memory steps = new IVault.BatchSwapStep[](3);
 
-		path[0] = PNT;
-		_setRoute(PNT, WBTC, RouteInfo({route: Route.UniswapV2, info: abi.encode(path)}));
+		// STG -> bb-a-USD
+		steps[0] = IVault.BatchSwapStep({
+			poolId: 0x4ce0bd7debf13434d3ae127430e9bd4291bfb61f00020000000000000000038b,
+			assetInIndex: 0,
+			assetOutIndex: 1,
+			amount: 0,
+			userData: ''
+		});
 
-		_setRoute(USDT, USDC, RouteInfo({route: Route.UniswapV3Direct, info: abi.encode(uint24(100))}));
-		_setRoute(DAI, USDC, RouteInfo({route: Route.UniswapV3Direct, info: abi.encode(uint24(100))}));
+		// bb-a-USD -> bb-a-USDC
+		steps[1] = IVault.BatchSwapStep({
+			poolId: 0xa13a9247ea42d743238089903570127dda72fe4400000000000000000000035d,
+			assetInIndex: 1,
+			assetOutIndex: 2,
+			amount: 0,
+			userData: ''
+		});
+
+		// bb-a-USDC -> USDC
+		steps[2] = IVault.BatchSwapStep({
+			poolId: 0x82698aecc9e28e9bb27608bd52cf57f704bd1b83000000000000000000000336,
+			assetInIndex: 2,
+			assetOutIndex: 3,
+			amount: 0,
+			userData: ''
+		});
+
+		_setRoute(STG, USDC, RouteInfo({route: Route.BalancerBatch, info: abi.encode(steps, assets)}));
 	}
 
 	/*///////////////////////
@@ -137,18 +146,28 @@ contract Swap is Ownable {
 		uint256 _minReceived
 	) external returns (uint256 received) {
 		RouteInfo memory routeInfo = routes[_tokenIn][_tokenOut];
+
+		ERC20 tokenIn = ERC20(_tokenIn);
+		tokenIn.safeTransferFrom(msg.sender, address(this), _amount);
+
 		Route route = routeInfo.route;
-
-		ERC20(_tokenIn).safeTransferFrom(msg.sender, address(this), _amount);
-
 		bytes memory info = routeInfo.info;
 
-		if (route == Route.UniswapV2) return _uniswapV2(_amount, _minReceived, info);
-		if (route == Route.UniswapV3Direct) return _uniswapV3Direct(_tokenIn, _tokenOut, _amount, _minReceived, info);
-		if (route == Route.UniswapV3Path) return _uniswapV3Path(_amount, _minReceived, info);
-		if (route == Route.SushiSwap) return _sushiswap(_amount, _minReceived, info);
+		if (route == Route.UniswapV2) {
+			received = _uniswapV2(_amount, _minReceived, info);
+		} else if (route == Route.UniswapV3Direct) {
+			received = _uniswapV3Direct(_tokenIn, _tokenOut, _amount, _minReceived, info);
+		} else if (route == Route.UniswapV3Path) {
+			received = _uniswapV3Path(_amount, _minReceived, info);
+		} else if (route == Route.SushiSwap) {
+			received = _sushiswap(_amount, _minReceived, info);
+		} else if (route == Route.BalancerBatch) {
+			received = _balancerBatch(_amount, _minReceived, info);
+		} else revert UnsupportedRoute(_tokenIn, _tokenOut);
 
-		revert UnsupportedRoute(_tokenIn, _tokenOut);
+		// return unswapped amount to sender
+		uint256 balance = tokenIn.balanceOf(address(this));
+		if (balance > 0) tokenIn.safeTransfer(msg.sender, balance);
 	}
 
 	/*///////////////////////////////////////////
@@ -187,10 +206,8 @@ contract Swap is Ownable {
 			if (path[path.length - 1] != _tokenOut) revert InvalidRouteInfo();
 		}
 
-		if (route == Route.UniswapV3Direct) {
-			// just check that this doesn't throw an error
-			abi.decode(info, (uint24));
-		}
+		// just check that this doesn't throw an error
+		if (route == Route.UniswapV3Direct) abi.decode(info, (uint24));
 
 		if (route == Route.UniswapV3Path) {
 			bytes memory path = info;
@@ -205,7 +222,10 @@ contract Swap is Ownable {
 			if (tokenOut != _tokenOut) revert InvalidRouteInfo();
 		}
 
-		address router = route == Route.SushiSwap ? address(sushiswap) : address(uniswap);
+		address router = route == Route.SushiSwap ? address(sushiswap) : route == Route.BalancerBatch
+			? address(balancer)
+			: address(uniswap);
+
 		ERC20(_tokenIn).safeApprove(router, 0);
 		ERC20(_tokenIn).safeApprove(router, type(uint256).max);
 
@@ -246,9 +266,9 @@ contract Swap is Ownable {
 		address _tokenOut,
 		uint256 _amount,
 		uint256 _minReceived,
-		bytes memory info
+		bytes memory _info
 	) internal returns (uint256) {
-		uint24 fee = abi.decode(info, (uint24));
+		uint24 fee = abi.decode(_info, (uint24));
 
 		return
 			uniswap.exactInputSingle(
@@ -267,16 +287,50 @@ contract Swap is Ownable {
 	function _uniswapV3Path(
 		uint256 _amount,
 		uint256 _minReceived,
-		bytes memory path
+		bytes memory _path
 	) internal returns (uint256) {
 		return
 			uniswap.exactInput(
 				ISwapRouter02.ExactInputParams({
-					path: path,
+					path: _path,
 					recipient: msg.sender,
 					amountIn: _amount,
 					amountOutMinimum: _minReceived
 				})
 			);
+	}
+
+	function _balancerBatch(
+		uint256 _amount,
+		uint256 _minReceived,
+		bytes memory _info
+	) internal returns (uint256) {
+		(IVault.BatchSwapStep[] memory steps, IAsset[] memory assets) = abi.decode(
+			_info,
+			(IVault.BatchSwapStep[], IAsset[])
+		);
+
+		steps[0].amount = _amount;
+
+		int256[] memory limits = new int256[](assets.length);
+
+		limits[0] = int256(_amount);
+		limits[limits.length - 1] = int256(_minReceived);
+
+		int256[] memory received = balancer.batchSwap(
+			IVault.SwapKind.GIVEN_IN,
+			steps,
+			assets,
+			IVault.FundManagement({
+				sender: address(this),
+				fromInternalBalance: false,
+				recipient: payable(address(msg.sender)),
+				toInternalBalance: false
+			}),
+			limits,
+			block.timestamp + 30 minutes
+		);
+
+		return uint256(received[received.length - 1]);
 	}
 }
