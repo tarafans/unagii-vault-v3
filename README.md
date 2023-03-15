@@ -30,7 +30,7 @@ make unit # run only vault unit tests
 make test args='--match-path test/integration/UsdcVault.t.sol -vvv'
 ```
 
-### Deploy Script
+### Scripts
 
 ```shell
 source .env
