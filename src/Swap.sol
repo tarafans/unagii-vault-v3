@@ -146,12 +146,11 @@ contract Swap is Ownable {
 		uint256 _minReceived
 	) external returns (uint256 received) {
 		RouteInfo memory routeInfo = routes[_tokenIn][_tokenOut];
-		Route route = routeInfo.route;
 
 		ERC20 tokenIn = ERC20(_tokenIn);
-
 		tokenIn.safeTransferFrom(msg.sender, address(this), _amount);
 
+		Route route = routeInfo.route;
 		bytes memory info = routeInfo.info;
 
 		if (route == Route.UniswapV2) {
