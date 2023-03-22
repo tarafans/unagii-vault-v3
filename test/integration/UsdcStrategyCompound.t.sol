@@ -39,7 +39,7 @@ contract UsdcStrategyCompoundTest is Test, TestHelpers {
 		swap.setRoute(
 			address(COMP),
 			address(USDC),
-			Swap.RouteInfo({route: Swap.Route.UniswapV2, info: abi.encode(path)})
+			Swap.RouteInfo({route: Swap.Route.SushiSwap, info: abi.encode(path)})
 		);
 
 		strategy = new UsdcStrategyCompound(vault, treasury, address(0), address(this), new address[](0), swap);
