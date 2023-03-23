@@ -123,14 +123,6 @@ contract WethStrategyConvexStEth is Strategy {
 			uint256 rewardBalance = rewardToken.balanceOf(address(this));
 
 			if (rewardBalance == 0) continue;
-
-			// send rewards to treasury
-			if (fee > 0) {
-				uint256 feeAmount = _calculateFee(rewardBalance);
-				rewardToken.safeTransfer(treasury, feeAmount);
-				rewardBalance -= feeAmount;
-			}
-
 			swap.swapTokens(address(rewardToken), address(asset), rewardBalance, 1);
 		}
 	}
