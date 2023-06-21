@@ -13,6 +13,13 @@ interface IVault {
 		GIVEN_OUT
 	}
 
+	struct JoinPoolRequest {
+		IAsset[] assets;
+		uint256[] maxAmountsIn;
+		bytes userData;
+		bool fromInternalBalance;
+	}
+
 	/**
 	 * @dev Data for each individual swap executed by `batchSwap`. The asset in and out fields are indexes into the
 	 * `assets` array passed to that function, and ETH assets are converted to WETH.
