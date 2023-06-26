@@ -74,6 +74,9 @@ contract Swap is Ownable {
 		address USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 		address USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 
+		address BAL = 0xba100000625a3754423978a60c9317c58a424e3D;
+		address AURA = 0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF;
+
 		_setRoute(CRV, WETH, RouteInfo({route: Route.UniswapV3Direct, info: abi.encode(uint24(3_000))}));
 		_setRoute(CVX, WETH, RouteInfo({route: Route.UniswapV3Direct, info: abi.encode(uint24(10_000))}));
 		_setRoute(LDO, WETH, RouteInfo({route: Route.UniswapV3Direct, info: abi.encode(uint24(3_000))}));
@@ -126,6 +129,24 @@ contract Swap is Ownable {
 		});
 
 		_setRoute(STG, USDC, RouteInfo({route: Route.BalancerBatch, info: abi.encode(steps, assets)}));
+
+		_setRoute(
+			BAL,
+			WETH,
+			RouteInfo({
+				route: Route.BalancerSingle,
+				info: abi.encode(0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014)
+			})
+		);
+
+		_setRoute(
+			AURA,
+			WETH,
+			RouteInfo({
+				route: Route.BalancerSingle,
+				info: abi.encode(0xcfca23ca9ca720b6e98e3eb9b6aa0ffc4a5c08b9000200000000000000000274)
+			})
+		);
 	}
 
 	/*///////////////////////
@@ -165,9 +186,10 @@ contract Swap is Ownable {
 		} else if (route == Route.BalancerBatch) {
 			received = _balancerBatch(_amount, _minReceived, info);
 		} else if (route == Route.BalancerSingle) {
-			received = _balancerSingle(_amount, _minReceived, info);
+			received = _balancerSingle(_tokenIn, _tokenOut, _amount, _minReceived, info);
+		} else {
+			revert UnsupportedRoute(_tokenIn, _tokenOut);
 		}
-		revert UnsupportedRoute(_tokenIn, _tokenOut);
 
 		// return unswapped amount to sender
 		uint256 balance = tokenIn.balanceOf(address(this));
@@ -218,9 +240,14 @@ contract Swap is Ownable {
 			if (tokenOut != _tokenOut) revert InvalidRouteInfo();
 		}
 
-		address router = route == Route.SushiSwap ? address(sushiswap) : route == Route.BalancerBatch
-			? address(balancer)
-			: address(uniswap);
+		// check that these don't throw an error, i.e. poolId contains both _tokenIn and _tokenOut
+		if (route == Route.BalancerSingle) {
+			bytes32 poolId = abi.decode(info, (bytes32));
+			balancer.getPoolTokenInfo(poolId, _tokenIn);
+			balancer.getPoolTokenInfo(poolId, _tokenOut);
+		}
+
+		address router = _getRouterAddress(route);
 
 		ERC20(_tokenIn).safeApprove(router, 0);
 		ERC20(_tokenIn).safeApprove(router, type(uint256).max);
@@ -243,7 +270,7 @@ contract Swap is Ownable {
 			_minReceived,
 			path,
 			msg.sender,
-			block.timestamp + 30 minutes
+			type(uint256).max
 		);
 
 		return received[received.length - 1];
@@ -308,7 +335,7 @@ contract Swap is Ownable {
 				toInternalBalance: false
 			}),
 			limits,
-			block.timestamp + 30 minutes
+			type(uint256).max
 		);
 
 		return uint256(received[received.length - 1]);
@@ -321,25 +348,38 @@ contract Swap is Ownable {
 		uint256 _minReceived,
 		bytes memory _info
 	) internal returns (uint256) {
-		bytes32 poolId = abi.decode(_info);
+		bytes32 poolId = abi.decode(_info, (bytes32));
 
-		uint256 received = balancer.swap(
-			IVault.SingleSwap({
-				poolId: poolId,
-				SwapKind: IVault.SwapKind.GIVEN_IN,
-				assetIn: IVault.IAsset(_tokenIn),
-				assetOut: IVault.IAsset(_tokenOut),
-				amount: _amount,
-				userData: abi.encode() // TODO
-			}),
-			IVault.FundManagement({
-				sender: address(this),
-				fromInternalBalance: false,
-				recipient: payable(address(msg.sender)),
-				toInternalBalance: false
-			}),
-			_minReceived,
-			block.timestamp + 30 minutes
-		);
+		return
+			balancer.swap(
+				IVault.SingleSwap({
+					poolId: poolId,
+					kind: IVault.SwapKind.GIVEN_IN,
+					assetIn: IAsset(_tokenIn),
+					assetOut: IAsset(_tokenOut),
+					amount: _amount,
+					userData: ''
+				}),
+				IVault.FundManagement({
+					sender: address(this),
+					fromInternalBalance: false,
+					recipient: payable(address(msg.sender)),
+					toInternalBalance: false
+				}),
+				_minReceived,
+				type(uint256).max
+			);
+	}
+
+	function _getRouterAddress(Route _route) internal pure returns (address) {
+		if (_route == Route.SushiSwap) {
+			return address(sushiswap);
+		} else if (_route == Route.UniswapV2 || _route == Route.UniswapV3Direct || _route == Route.UniswapV3Path) {
+			return address(uniswap);
+		} else if (_route == Route.BalancerBatch || _route == Route.BalancerSingle) {
+			return address(balancer);
+		}
+
+		revert InvalidRouteInfo();
 	}
 }

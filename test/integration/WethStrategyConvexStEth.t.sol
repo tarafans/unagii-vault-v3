@@ -40,11 +40,7 @@ contract WethStrategyConvexStEthTest is TestHelpers {
 	/      Helpers      /
 	///////////////////*/
 
-	function depositWeth(
-		address from,
-		uint256 amount,
-		address receiver
-	) public {
+	function depositWeth(address from, uint256 amount, address receiver) public {
 		vm.deal(from, amount);
 		vm.startPrank(from);
 		zap.depositETH{value: amount}(receiver);

@@ -27,16 +27,10 @@ contract WethStrategyAuraRethTest is TestHelpers {
 
 	function setUp() public {
 		vault = new Vault(WETH9, 0, 0, address(0), address(this), new address[](0));
+		swap = new Swap();
 		strategy = new WethStrategyAuraReth(vault, treasury, address(0), address(this), new address[](0), swap);
 		vault.addStrategy(strategy, 100);
 		zap = new WethZap(vault);
-		Swap = new Swap();
-
-		swap.setRoute(
-			BAL,
-			address(WETH9),
-			Swap.RouteInfo({route: Route.BalancerBatch, info: abi.encode(steps, assets)})
-		);
 	}
 
 	/*///////////////////

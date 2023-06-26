@@ -27,6 +27,11 @@ interface IVault {
 		bytes32 poolId
 	) external view returns (address[] memory tokens, uint256[] memory balances, uint256 lastChangeBlock);
 
+	function getPoolTokenInfo(
+		bytes32 poolId,
+		address token
+	) external view returns (uint256 cash, uint256 managed, uint256 lastChangedBlock, address assetManager);
+
 	function queryExit(
 		bytes32 poolId,
 		address sender,
