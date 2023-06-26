@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.9;
 
-import 'forge-std/console2.sol';
-
 import '../Swap.sol';
 import '../Strategy.sol';
 import {IRewardPoolDepositWrapper} from '../external/aura/IRewardPoolDepositWrapper.sol';
@@ -153,9 +151,6 @@ abstract contract StrategyAura is Strategy {
 		maxAmountsIn[balancerPoolAssetIndex] = assetBalance;
 
 		uint256 minBp = _calculateSlippage(assetBalance.mulDivDown(1e18, balancerPool.getRate()));
-
-		// bytes memory userData = abi.encode(1, maxAmountsIn, minBp);
-		// console2.logBytes(userData);
 
 		IVault.JoinPoolRequest memory request = IVault.JoinPoolRequest({
 			assets: balancerPoolAssets,

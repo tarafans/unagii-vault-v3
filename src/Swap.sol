@@ -240,7 +240,7 @@ contract Swap is Ownable {
 			if (tokenOut != _tokenOut) revert InvalidRouteInfo();
 		}
 
-		// check that these don't throw an error, i.e. poolId contains both _tokenIn and _tokenOut
+		// just check that these don't throw an error, i.e. the poolId contains both _tokenIn
 		if (route == Route.BalancerSingle) {
 			bytes32 poolId = abi.decode(info, (bytes32));
 			balancer.getPoolTokenInfo(poolId, _tokenIn);
@@ -378,8 +378,6 @@ contract Swap is Ownable {
 			return address(uniswap);
 		} else if (_route == Route.BalancerBatch || _route == Route.BalancerSingle) {
 			return address(balancer);
-		}
-
-		revert InvalidRouteInfo();
+		} else revert InvalidRouteInfo();
 	}
 }
