@@ -25,7 +25,8 @@ contract Swap is Ownable {
 		UniswapV3Direct,
 		UniswapV3Path,
 		SushiSwap,
-		BalancerBatch
+		BalancerBatch,
+		BalancerSingle
 	}
 
 	/**
@@ -163,7 +164,10 @@ contract Swap is Ownable {
 			received = _sushiswap(_amount, _minReceived, info);
 		} else if (route == Route.BalancerBatch) {
 			received = _balancerBatch(_amount, _minReceived, info);
-		} else revert UnsupportedRoute(_tokenIn, _tokenOut);
+		} else if (route == Route.BalancerSingle) {
+			received = _balancerSingle(_amount, _minReceived, info);
+		}
+		revert UnsupportedRoute(_tokenIn, _tokenOut);
 
 		// return unswapped amount to sender
 		uint256 balance = tokenIn.balanceOf(address(this));
@@ -174,11 +178,7 @@ contract Swap is Ownable {
 	/      Restricted Functions: onlyOwner      /
 	///////////////////////////////////////////*/
 
-	function setRoute(
-		address _tokenIn,
-		address _tokenOut,
-		RouteInfo memory _routeInfo
-	) external onlyOwner {
+	function setRoute(address _tokenIn, address _tokenOut, RouteInfo memory _routeInfo) external onlyOwner {
 		_setRoute(_tokenIn, _tokenOut, _routeInfo);
 	}
 
@@ -191,11 +191,7 @@ contract Swap is Ownable {
 	/      Internal Functions      /
 	//////////////////////////////*/
 
-	function _setRoute(
-		address _tokenIn,
-		address _tokenOut,
-		RouteInfo memory _routeInfo
-	) internal {
+	function _setRoute(address _tokenIn, address _tokenOut, RouteInfo memory _routeInfo) internal {
 		Route route = _routeInfo.route;
 		bytes memory info = _routeInfo.info;
 
@@ -233,21 +229,13 @@ contract Swap is Ownable {
 		emit RouteSet(_tokenIn, _tokenOut, _routeInfo);
 	}
 
-	function _uniswapV2(
-		uint256 _amount,
-		uint256 _minReceived,
-		bytes memory _path
-	) internal returns (uint256) {
+	function _uniswapV2(uint256 _amount, uint256 _minReceived, bytes memory _path) internal returns (uint256) {
 		address[] memory path = abi.decode(_path, (address[]));
 
 		return uniswap.swapExactTokensForTokens(_amount, _minReceived, path, msg.sender);
 	}
 
-	function _sushiswap(
-		uint256 _amount,
-		uint256 _minReceived,
-		bytes memory _path
-	) internal returns (uint256) {
+	function _sushiswap(uint256 _amount, uint256 _minReceived, bytes memory _path) internal returns (uint256) {
 		address[] memory path = abi.decode(_path, (address[]));
 
 		uint256[] memory received = sushiswap.swapExactTokensForTokens(
@@ -284,11 +272,7 @@ contract Swap is Ownable {
 			);
 	}
 
-	function _uniswapV3Path(
-		uint256 _amount,
-		uint256 _minReceived,
-		bytes memory _path
-	) internal returns (uint256) {
+	function _uniswapV3Path(uint256 _amount, uint256 _minReceived, bytes memory _path) internal returns (uint256) {
 		return
 			uniswap.exactInput(
 				ISwapRouter02.ExactInputParams({
@@ -300,11 +284,7 @@ contract Swap is Ownable {
 			);
 	}
 
-	function _balancerBatch(
-		uint256 _amount,
-		uint256 _minReceived,
-		bytes memory _info
-	) internal returns (uint256) {
+	function _balancerBatch(uint256 _amount, uint256 _minReceived, bytes memory _info) internal returns (uint256) {
 		(IVault.BatchSwapStep[] memory steps, IAsset[] memory assets) = abi.decode(
 			_info,
 			(IVault.BatchSwapStep[], IAsset[])
@@ -332,5 +312,34 @@ contract Swap is Ownable {
 		);
 
 		return uint256(received[received.length - 1]);
+	}
+
+	function _balancerSingle(
+		address _tokenIn,
+		address _tokenOut,
+		uint256 _amount,
+		uint256 _minReceived,
+		bytes memory _info
+	) internal returns (uint256) {
+		bytes32 poolId = abi.decode(_info);
+
+		uint256 received = balancer.swap(
+			IVault.SingleSwap({
+				poolId: poolId,
+				SwapKind: IVault.SwapKind.GIVEN_IN,
+				assetIn: IVault.IAsset(_tokenIn),
+				assetOut: IVault.IAsset(_tokenOut),
+				amount: _amount,
+				userData: abi.encode() // TODO
+			}),
+			IVault.FundManagement({
+				sender: address(this),
+				fromInternalBalance: false,
+				recipient: payable(address(msg.sender)),
+				toInternalBalance: false
+			}),
+			_minReceived,
+			block.timestamp + 30 minutes
+		);
 	}
 }

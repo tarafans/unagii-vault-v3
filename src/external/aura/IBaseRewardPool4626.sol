@@ -1,16 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.9;
 
-/// https://github.com/aurafinance/aura-contracts/blob/main/contracts/interfaces/IRewardPool4626.sol
+/// https://github.com/aurafinance/convex-platform/blob/ac65176277284b4c988f0e1b12db8d08c48746be/contracts/contracts/BaseRewardPool4626.sol
 
-interface IRewardPool4626 {
-	function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares);
+interface IBaseRewardPool4626 {
+	function balanceOf(address) external view returns (uint256);
 
-	function deposit(uint256 assets, address receiver) external returns (uint256 shares);
+	function getReward() external;
 
-	function asset() external view returns (address);
-
-	function balanceOf(address account) external view returns (uint256);
-
-	function processIdleRewards() external;
+	function withdrawAndUnwrap(uint256 amount, bool claim) external returns (bool);
 }
