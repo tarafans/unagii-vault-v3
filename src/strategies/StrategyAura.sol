@@ -99,19 +99,13 @@ abstract contract StrategyAura is Strategy {
 	/      Internal Override      /
 	/////////////////////////////*/
 
-	enum ExitKind {
-		EXACT_BPT_IN_FOR_ONE_TOKEN_OUT,
-		BPT_IN_FOR_EXACT_TOKENS_OUT,
-		EXACT_BPT_IN_FOR_ALL_TOKENS_OUT
-	}
-
 	function _withdraw(uint256 _assets) internal override returns (uint256 received) {
 		uint256 bpAmount = _assets.mulDivDown(1e18, balancerPool.getRate());
 
 		if (!reward.withdrawAndUnwrap(bpAmount, true)) revert WithdrawAndUnwrapFailed();
 
 		uint256[] memory minAmountsOut = new uint256[](balancerPoolAssets.length);
-		minAmountsOut[balancerPoolAssetIndex] = _calculateSlippage(bpAmount);
+		minAmountsOut[balancerPoolAssetIndex] = _calculateSlippage(_assets);
 
 		uint256 balanceBefore = asset.balanceOf(address(this));
 
