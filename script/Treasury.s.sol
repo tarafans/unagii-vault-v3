@@ -23,26 +23,26 @@ contract Deploy is Script {
         Staking wethStaking = new Staking(ERC20(wethVault), WETH9, timeLock, multisig, authorized);
 
         TreasuryConvexTricrypto wethTreasury = new TreasuryConvexTricrypto(
-    wethStaking,
-    timeLock,
-    multisig,
-    authorized,
-    swap,
-    2
-    );
+            wethStaking,
+            timeLock,
+            multisig,
+            authorized,
+            swap,
+            2
+        );
 
         wethStaking.addAuthorized(address(wethTreasury));
 
         Staking usdcStaking = new Staking(ERC20(usdcVault), USDC, timeLock, multisig, authorized);
 
         TreasuryConvexTricrypto usdcTreasury = new TreasuryConvexTricrypto(
-    usdcStaking,
-    timeLock,
-    multisig,
-    authorized,
-    swap,
-    0
-    );
+            usdcStaking,
+            timeLock,
+            multisig,
+            authorized,
+            swap,
+            0
+        );
 
         usdcStaking.addAuthorized(address(usdcTreasury));
     }

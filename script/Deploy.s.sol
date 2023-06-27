@@ -27,25 +27,25 @@ contract Deploy is Script {
         Vault usdcVault = new Vault(USDC, delay, float, timeLock, multisig, authorized);
 
         UsdcStrategyStargate usdcStrategy = new UsdcStrategyStargate(
-    usdcVault,
-    treasury,
-    timeLock,
-    multisig,
-    authorized,
-    swap
-    );
+            usdcVault,
+            treasury,
+            timeLock,
+            multisig,
+            authorized,
+            swap
+        );
         usdcVault.addStrategy(usdcStrategy, 95);
 
         Vault wethVault = new Vault(WETH9, delay, float, timeLock, multisig, authorized);
 
         WethStrategyConvexStEth wethStrategy = new WethStrategyConvexStEth(
-    wethVault,
-    treasury,
-    timeLock,
-    multisig,
-    authorized,
-    swap
-    );
+            wethVault,
+            treasury,
+            timeLock,
+            multisig,
+            authorized,
+            swap
+        );
 
         wethVault.addStrategy(wethStrategy, 95);
         new WethZap(wethVault);
