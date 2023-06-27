@@ -308,7 +308,7 @@ contract Swap is Ownable {
         int256[] memory limits = new int256[](assets.length);
 
         limits[0] = int256(_amount);
-        limits[limits.length - 1] = int256(_minReceived);
+        limits[limits.length - 1] = -int256(_minReceived);
 
         int256[] memory received = balancer.batchSwap(
             IVault.SwapKind.GIVEN_IN,
@@ -324,7 +324,7 @@ contract Swap is Ownable {
             type(uint256).max
         );
 
-        return uint256(received[received.length - 1]);
+        return uint256(-received[received.length - 1]);
     }
 
     function _balancerSingle(
