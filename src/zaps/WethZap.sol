@@ -13,9 +13,7 @@ contract WethZap {
     WETH public immutable WETH9;
 
     event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
-    event Withdraw(
-        address indexed caller, address indexed receiver, address indexed owner, uint256 assets, uint256 shares
-    );
+    event Withdraw(address indexed owner, uint256 assets, uint256 shares);
 
     error NoDepositETH();
 
@@ -45,21 +43,18 @@ contract WethZap {
     }
 
     /// @notice user has to approve zap using vault share tokens
-    function safeRedeemETH(uint256 _shares, address _receiver, address _owner, uint256 _maxShares)
-        external
-        returns (uint256 assets)
-    {
-        assets = vault.safeRedeem(_shares, address(this), _owner, _maxShares);
+    function safeRedeemETH(uint256 _shares, uint256 _maxShares) external returns (uint256 assets) {
+        assets = vault.safeRedeem(_shares, address(this), msg.sender, _maxShares);
         WETH9.withdraw(assets);
-        SafeTransferLib.safeTransferETH(_receiver, assets);
-        emit Withdraw(msg.sender, _receiver, _owner, assets, _shares);
+        SafeTransferLib.safeTransferETH(msg.sender, assets);
+        emit Withdraw(msg.sender, assets, _shares);
     }
 
     /// @notice user has to approve zap using vault share tokens
-    function redeemETH(uint256 _shares, address _receiver, address _owner) external returns (uint256 assets) {
-        assets = vault.redeem(_shares, address(this), _owner);
+    function redeemETH(uint256 _shares) external returns (uint256 assets) {
+        assets = vault.redeem(_shares, address(this), msg.sender);
         WETH9.withdraw(assets);
-        SafeTransferLib.safeTransferETH(_receiver, assets);
-        emit Withdraw(msg.sender, _receiver, _owner, assets, _shares);
+        SafeTransferLib.safeTransferETH(msg.sender, assets);
+        emit Withdraw(msg.sender, assets, _shares);
     }
 }
