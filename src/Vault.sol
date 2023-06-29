@@ -165,7 +165,6 @@ contract Vault is ERC20, IERC4626, Ownership, BlockDelay {
 
     function previewWithdraw(uint256 assets) public view returns (uint256 shares) {
         uint256 supply = totalSupply;
-
         return supply == 0 ? assets : assets.mulDivUp(supply, freeAssets());
     }
 
