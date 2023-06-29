@@ -16,17 +16,17 @@ contract TestBlockDelay is BlockDelay(BLOCK_DELAY) {
 }
 
 contract BlockDelayTest is Test {
-    TestBlockDelay private testBlockDelay;
+    TestBlockDelay private inst;
     address constant account = address(1);
 
     function setUp() public {
-        testBlockDelay = new TestBlockDelay();
+        inst = new TestBlockDelay();
         vm.roll(100);
     }
 
     function testSetBlockDelayRevertMaxDelay() public {
         vm.expectRevert(BlockDelay.AboveMaxBlockDelay.selector);
-        testBlockDelay.setBlockDelay(MAX_BLOCK_DELAY + 1);
+        inst.setBlockDelay(MAX_BLOCK_DELAY + 1);
     }
 
     function testSetBlockDelay() public {
@@ -36,37 +36,37 @@ contract BlockDelayTest is Test {
         delays[2] = MAX_BLOCK_DELAY;
 
         for (uint256 i = 0; i < delays.length; i++) {
-            testBlockDelay.setBlockDelay(delays[i]);
-            assertEq(testBlockDelay.blockDelay(), delays[i]);
+            inst.setBlockDelay(delays[i]);
+            assertEq(inst.blockDelay(), delays[i]);
         }
     }
 
     function testUseBlockDelay() public {
-        assertEq(testBlockDelay.lastBlock(account), 0, "last block");
+        assertEq(inst.lastBlock(account), 0, "last block");
 
         // Test update
-        testBlockDelay.updateLastBlock(account);
-        assertEq(testBlockDelay.lastBlock(account), block.number);
+        inst.updateLastBlock(account);
+        assertEq(inst.lastBlock(account), block.number);
 
         // Test revert
         vm.expectRevert(BlockDelay.BeforeBlockDelay.selector);
-        testBlockDelay.updateLastBlock(account);
+        inst.updateLastBlock(account);
 
         // Test update again
-        vm.roll(testBlockDelay.lastBlock(account) + BLOCK_DELAY);
-        testBlockDelay.updateLastBlock(account);
-        assertEq(testBlockDelay.lastBlock(account), block.number);
+        vm.roll(inst.lastBlock(account) + BLOCK_DELAY);
+        inst.updateLastBlock(account);
+        assertEq(inst.lastBlock(account), block.number);
     }
 
     function testZeroBlockDelay() public {
-        testBlockDelay.setBlockDelay(0);
+        inst.setBlockDelay(0);
 
         // Test update
-        testBlockDelay.updateLastBlock(account);
-        assertEq(testBlockDelay.lastBlock(account), block.number);
+        inst.updateLastBlock(account);
+        assertEq(inst.lastBlock(account), block.number);
 
         // Test update again
-        testBlockDelay.updateLastBlock(account);
-        assertEq(testBlockDelay.lastBlock(account), block.number);
+        inst.updateLastBlock(account);
+        assertEq(inst.lastBlock(account), block.number);
     }
 }
