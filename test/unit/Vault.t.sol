@@ -70,13 +70,6 @@ contract VaultTest is Test {
         assertEq(vault.convertToAssets(90), 100);
     }
 
-    // TODO: preview withdraw
-    // TODO: preview redeem
-    // TODO: test locked profit
-    // TODO: test free assets
-    // TODO: test mint / burn block delay
-    // TODO: test not authorized withdraw
-
     function testDepositAndWithdraw(uint256 amount) public {
         vm.assume(amount > 0 && amount < type(uint128).max);
 
