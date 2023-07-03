@@ -68,8 +68,8 @@ contract WethZap is Ownable {
     }
 
     /// @notice user has to approve zap using vault share tokens
-    function safeRedeemETH(uint256 _shares, uint256 _maxShares) external whenNotPaused returns (uint256 assets) {
-        assets = vault.safeRedeem(_shares, address(this), msg.sender, _maxShares);
+    function safeRedeemETH(uint256 _shares, uint256 _minAssets) external whenNotPaused returns (uint256 assets) {
+        assets = vault.safeRedeem(_shares, address(this), msg.sender, _minAssets);
         WETH9.withdraw(assets);
         SafeTransferLib.safeTransferETH(msg.sender, assets);
         emit Withdraw(msg.sender, assets, _shares);

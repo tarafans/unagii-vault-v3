@@ -3,14 +3,14 @@ pragma solidity 0.8.9;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
+import "solmate/tokens/WETH.sol";
 import "src/Vault.sol";
 import "src/zaps/WethZap.sol";
-import "../mocks/MockWETH.sol";
 
 uint8 constant BLOCK_DELAY = 10;
 
 contract WethZapTest is Test {
-    MockWETH weth;
+    WETH weth;
     Vault vault;
     WethZap zap;
 
@@ -19,7 +19,7 @@ contract WethZapTest is Test {
     address constant u3 = address(0xAAA3);
 
     function setUp() public {
-        weth = new MockWETH();
+        weth = new WETH();
         vault = new Vault({
             _asset: weth,
             _blockDelay: BLOCK_DELAY,
