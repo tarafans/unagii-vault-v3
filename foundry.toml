@@ -3,12 +3,12 @@ src = 'src'
 out = 'out'
 libs = ['lib']
 solc_version = '0.8.9'
-optimizer = true
-optimizer-runs = 10000
+# optimizer = true
+# optimizer-runs = 10000
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 [rpc_endpoints]
-mainnet = "${RPC_URL}"
+mainnet = "https://mainnet.infura.io/v3/84842078b09946638c03157f83405213"
 
-[etherscan]
-mainnet = { key = "${ETHERSCAN_API_KEY}" }
+# [etherscan]
+# mainnet = { key = "${ETHERSCAN_API_KEY}" }
